@@ -43,7 +43,7 @@ def read_video(name, frame_shape):
         video_array = video_array.reshape((-1,) + frame_shape)
         video_array = np.moveaxis(video_array, 1, 2)
     elif name.lower().endswith('.gif') or name.lower().endswith('.mp4') or name.lower().endswith('.mov'):
-        video = np.array(mimread(name))
+        video = np.array(mimread(name,memtest=False))
         if len(video.shape) == 3:
             video = np.array([gray2rgb(frame) for frame in video])
         if video.shape[-1] == 4:
@@ -131,7 +131,7 @@ class FramesDataset(Dataset):
 
         out = {}
         if self.is_train:
-            f = open(os.path.join(self.meta_dir, video_name.split('.')[0] + '.pkl'), 'rb')
+            f = open(os.path.join(self.meta_dir, video_name.replace('.mp4','') + '.pkl'), 'rb')
             video_meta = pickle.load(f)
             f.close()
             source = np.array(video_array[0], dtype='float32')
@@ -246,7 +246,7 @@ class ImageDataset(Dataset):
         out['image'] = image.transpose((2, 0, 1))
 
         if self.meta_dir is not None:
-            f = open(os.path.join(self.meta_dir, video_name.split('.')[0] + '.pkl'), 'rb')
+            f = open(os.path.join(self.meta_dir, video_name.replace('.mp4','') + '.pkl'), 'rb')
             video_meta = pickle.load(f)
             f.close()
             out['ldmk'] = video_meta[frame_idx]['ldmk']

@@ -27,28 +27,24 @@ if __name__ == "__main__":
         device = 'cuda'
 
     fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, face_detector='sfd', device=device)
-
-    for video_name in tqdm(os.listdir(opt.video_dir)):
-        print('processing {}'.format(video_name))
+    bar=tqdm(os.listdir(opt.video_dir)[783:])
+    for video_name in bar:
+        if os.path.exists(os.path.join(opt.out_dir, video_name.replace('.mp4','')+ ".pkl")):
+            continue
+        bar.set_description('processing {}'.format(video_name))
         video_pth = os.path.join(opt.video_dir, video_name)
-        video = np.array(mimread(video_pth))
+        video = np.array(mimread(video_pth,memtest=False))
         
         video_ldmk_meta = {}
         for i in range(video.shape[0]):
-            ldmk_pred = fa.get_landmarks(video[i])[0]
+            result = fa.get_landmarks(video[i])
             video_ldmk_meta[i] = {}
-            if len(ldmk_pred) == 0:
+            if result is None:
                 continue
             else:
-                video_ldmk_meta[i]['ldmk'] = ldmk_pred
-                if opt.vis_ldmk:
-                    img = video[i]
-                    for j in range(ldmk_pred.shape[0]):
-                        cv2.circle(img, (int(ldmk_pred[j, 0]), int(ldmk_pred[j, 1])), radius=1, color=(255, 255, 255))
-                    cv2.imshow('vis', img)
-                    cv2.waitKey(0)
+                video_ldmk_meta[i]['ldmk'] = result[0]
 
-        f = open(os.path.join(opt.out_dir, video_name.split('.')[0] + ".pkl"), 'wb')
+        f = open(os.path.join(opt.out_dir, video_name.replace('.mp4','')+ ".pkl"), 'wb')
         pickle.dump(video_ldmk_meta, f)
         f.close()
 

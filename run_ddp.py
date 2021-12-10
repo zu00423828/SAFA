@@ -27,7 +27,7 @@ if __name__ == "__main__":
         raise Exception("You must use Python 3 or higher. Recommended version is Python 3.7")
 
     parser = ArgumentParser()
-    parser.add_argument("--local_rank", default=-1, type=int)
+    parser.add_argument("--local_rank", default=0, type=int)
     parser.add_argument("--config", required=True, help="path to config")
     parser.add_argument("--with_eye", action="store_true", help="use eye part for extracting texture")
     parser.add_argument("--mode", default="train", choices=["train", "train_tdmm", "reconstruction", "animate"])
@@ -44,17 +44,19 @@ if __name__ == "__main__":
         log_dir += ' ' + strftime("%d_%m_%y_%H.%M.%S", gmtime())
 
     if opt.mode == 'train' or opt.mode == 'train_tdmm':
+        pass
         local_rank = opt.local_rank
-        print("local rank: ", local_rank)
-        torch.cuda.set_device(local_rank)
-        dist.init_process_group(backend='nccl')
+        # print("local rank: ", local_rank)
+        # torch.cuda.set_device(local_rank)
+        os.environ['MASTER_ADDR']='localhost'
+        os.environ['MASTER_PORT']='5678'
+        dist.init_process_group('gloo',rank=0,world_size=1)
 
         if local_rank == 0:
             if not os.path.exists(log_dir):
                 os.makedirs(log_dir)
             if not os.path.exists(os.path.join(log_dir, os.path.basename(opt.config))):
                 copy(opt.config, log_dir)
-
     with open(opt.config) as f:
         config = yaml.load(f)
 
@@ -84,7 +86,7 @@ if __name__ == "__main__":
               with_eye=opt.with_eye, checkpoint=opt.checkpoint, tdmm_checkpoint=opt.tdmm_checkpoint)
     elif opt.mode == 'train_tdmm':
         print("Training tdmm ...")
-        train_tdmm(config, tdmm, log_dir, dataset, local_rank, tdmm_checkpoint=opt.tdmm_checkpoint)
+        train_tdmm(config, tdmm, log_dir, dataset, local_rank=local_rank, tdmm_checkpoint=opt.tdmm_checkpoint)
     elif opt.mode == 'reconstruction':
         print("Reconstruction...")
         reconstruction(config, generator, kp_detector, tdmm, 

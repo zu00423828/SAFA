@@ -4,8 +4,6 @@ import os, sys
 import yaml
 from argparse import ArgumentParser
 from tqdm import tqdm
-import copy
-
 import imageio
 import numpy as np
 from skimage.transform import resize
@@ -18,7 +16,7 @@ from modules.keypoint_detector import KPDetector
 from modules.tdmm_estimator import TDMMEstimator
 from modules.flame_config import cfg as flame_cfg
 
-from logger import Logger, Visualizer
+from logger import  Visualizer
 
 from animate import normalize_kp
 from scipy.spatial import ConvexHull
@@ -30,7 +28,7 @@ if sys.version_info[0] < 3:
 def load_checkpoints(config_path, checkpoint_path, cpu=False):
 
     with open(config_path) as f:
-        config = yaml.load(f)
+        config = yaml.load(f,yaml.FullLoader)
 
     generator = OcclusionAwareGenerator(**config['model_params']['generator_params'],
                                         **config['model_params']['common_params'])
@@ -84,7 +82,7 @@ def make_animation(source_image, driving_video,
         driving_initial = driving[:, :, 0].cuda()
         kp_driving_initial = kp_detector(driving[:, :, 0].cuda())
         driving_init_codedict = tdmm.encode(driving_initial)
-        driving_init_verts, driving_init_transformed_verts, _ = tdmm.decode_flame(driving_init_codedict)
+        # driving_init_verts, driving_init_transformed_verts, _ = tdmm.decode_flame(driving_init_codedict)
 
         for frame_idx in tqdm(range(driving.shape[2])):
             driving_frame = driving[:, :, frame_idx]

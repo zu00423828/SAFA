@@ -50,7 +50,7 @@ def train(config, generator, discriminator, kp_detector, tdmm,
         dataset = DatasetRepeater(dataset, train_params['num_repeats'])
 
     train_sampler = torch.utils.data.distributed.DistributedSampler(dataset)
-    dataloader = DataLoader(dataset, batch_size=train_params['batch_size'], num_workers=4, sampler=train_sampler)
+    dataloader = DataLoader(dataset, batch_size=train_params['batch_size'], num_workers=4, sampler=train_sampler,drop_last=True)
 
     generator_full = GeneratorFullModel(kp_detector, generator, discriminator, tdmm, train_params, with_eye=with_eye)
     generator_full = torch.nn.SyncBatchNorm.convert_sync_batchnorm(generator_full)
@@ -158,8 +158,8 @@ def train_tdmm(config, tdmm, log_dir, dataset, local_rank, tdmm_checkpoint=None)
             loss_values = [val for val in losses_tdmm.values()]
             loss = sum(loss_values)
 
-            if i % 10 == 0:
-                print('batch ldmk loss: ', loss)
+            if i % 100 == 0:
+                print('batch ldmk loss: ', loss.item())
 
             loss.backward()
             optimizer_tdmm.step()
