@@ -1,6 +1,6 @@
 dataset_params:
   root_dir: /home/yuan/hdd/png
-  meta_dir: /home/yuan/hdd/out_dir
+  meta_dir: /home/yuan/hdd/ldmk_out
   frame_shape: [256, 256, 3]
   augmentation_params:
     flip_param:
@@ -17,7 +17,7 @@ train_params:
   num_repeats: 2
   lr_tdmm: 2.0e-4
   batch_size: 64
-  checkpoint_freq: 5
+  checkpoint_freq: 1
   loss_weights:
     landmark: 1
     tdmm_param: 1.0e-2

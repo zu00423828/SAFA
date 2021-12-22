@@ -7,10 +7,7 @@ import multiprocessing
 from imageio import mimread
 
 
-video_dir = '/home/yuan/hdd/test_video'
-png_dir = '/home/yuan/hdd/png'
-if not os.path.exists(png_dir):
-    os.mkdir(png_dir)
+
 
 def extract_imgs_from_video(video_name):
     out_video_dir = os.path.join(png_dir, video_name)
@@ -25,8 +22,11 @@ def extract_imgs_from_video(video_name):
 
 
 if __name__ == "__main__":
+    video_dir = '/home/yuan/hdd/video'
+    png_dir = '/home/yuan/hdd/png'
+    if not os.path.exists(png_dir):
+        os.mkdir(png_dir)
     cores = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(processes=(cores // 2))
-
     for _ in tqdm(pool.imap_unordered(extract_imgs_from_video, os.listdir(video_dir))):
         pass

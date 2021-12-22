@@ -1,7 +1,7 @@
 import os, sys
 import yaml
 from argparse import ArgumentParser
-from time import gmtime, strftime
+from time import gmtime, strftime,localtime
 from shutil import copy
 
 from frames_dataset import FramesDataset, ImageDataset
@@ -41,7 +41,7 @@ if __name__ == "__main__":
         log_dir = os.path.join(*os.path.split(opt.checkpoint)[:-1])
     else:
         log_dir = os.path.join(opt.log_dir, os.path.basename(opt.config).split('.')[0])
-        log_dir += ' ' + strftime("%d_%m_%y_%H.%M.%S", gmtime())
+        log_dir += ' ' + strftime("%d_%m_%y_%H.%M.%S", localtime())
 
     if opt.mode == 'train' or opt.mode == 'train_tdmm':
         pass
@@ -58,7 +58,7 @@ if __name__ == "__main__":
             if not os.path.exists(os.path.join(log_dir, os.path.basename(opt.config))):
                 copy(opt.config, log_dir)
     with open(opt.config) as f:
-        config = yaml.load(f)
+        config = yaml.load(f,yaml.FullLoader)
 
     if opt.mode == 'train_tdmm':
         tdmm = TDMMEstimator(flame_cfg)

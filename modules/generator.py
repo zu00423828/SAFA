@@ -161,9 +161,12 @@ class OcclusionAwareGenerator(nn.Module):
             out = self.up_blocks[i](out, code)
 
         out = self.final(out)
-        out = F.sigmoid(out)
+        out = torch.sigmoid(out)
 
         output_dict["prediction"] = out
 
         return output_dict
+
+
+
 
