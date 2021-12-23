@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import pickle
-import torch.nn.functional as F
+
 
 from .lbs import lbs, batch_rodrigues, vertices2landmarks, rot_mat_to_euler
 
@@ -140,7 +140,7 @@ class FLAME(nn.Module):
         """
         # Extract the indices of the vertices for each face
         # NxLx3
-        batch_size, num_verts = vertices.shape[:dd2]
+        batch_size, num_verts = vertices.shape[:2]
         lmk_faces = torch.index_select(faces, 0, lmk_faces_idx.view(-1)).view(
             1, -1, 3).view(batch_size, lmk_faces_idx.shape[1], -1)
 

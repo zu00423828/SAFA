@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from modules.util import ResBlock2d, SameBlock2d, UpBlock2d, DownBlock2d, GADEUpBlock2d, ContextualAttention
+from modules.util import ResBlock2d, SameBlock2d, DownBlock2d, GADEUpBlock2d, ContextualAttention
 from modules.dense_motion import DenseMotionNetwork
 from modules.util import AntiAliasInterpolation2d
 

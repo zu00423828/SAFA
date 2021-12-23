@@ -12,7 +12,6 @@ from modules.keypoint_detector import KPDetector
 from modules.tdmm_estimator import TDMMEstimator
 from modules.flame_config import cfg as flame_cfg
 
-import torch
 
 from train_ddp import train, train_tdmm
 from reconstruction import reconstruction

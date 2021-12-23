@@ -45,7 +45,7 @@ model_params:
 
 train_params:
   num_epochs: 50
-  num_repeats: 1
+  num_repeats: 5
   epoch_milestones: [15, 30, 45]
   lr_generator: 2.0e-4
   lr_discriminator: 2.0e-4

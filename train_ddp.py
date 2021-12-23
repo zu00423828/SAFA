@@ -28,18 +28,21 @@ def train(config, generator, discriminator, kp_detector, tdmm,
     optimizer_tdmm = torch.optim.Adam(tdmm.parameters(), lr=train_params['lr_tdmm'], betas=(0.5, 0.999))
 
     if checkpoint is not None:
-        if tdmm_checkpoint is not  None:
+        if tdmm_checkpoint is   None:
                 start_epoch = Logger.load_cpk(checkpoint, generator, discriminator, kp_detector,
                                       tdmm,optimizer_generator, optimizer_discriminator,
                                       None if train_params['lr_kp_detector'] == 0 else optimizer_kp_detector,
                                       optimizer_tdmm, local_rank)
         else :
             start_epoch = Logger.load_cpk(checkpoint_path = checkpoint, generator = generator, discriminator = discriminator, 
+                                        tdmm=None,
                                         optimizer_generator = optimizer_generator, optimizer_discriminator = optimizer_discriminator,
                                         optimizer_kp_detector = None if train_params['lr_kp_detector'] == 0 else optimizer_kp_detector,
+                                        optimizer_tdmm=None,
                                         local_rank = local_rank)
+            print(start_epoch)
             start_epoch = 0
-            tdmm_checkpoint = torch.load(tdmm_checkpoint, map_location=torch.device('cpu'))
+            tdmm_checkpoint = torch.load(tdmm_checkpoint)
             tdmm.load_state_dict(tdmm_checkpoint['tdmm'], strict=False)
     else:
         start_epoch = 0

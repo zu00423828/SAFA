@@ -4,7 +4,6 @@ This config file for flame is borrowed from https://github.com/YadiraF/DECA
 
 from yacs.config import CfgNode as CN
 import argparse
-import yaml
 import os
 
 cfg = CN()

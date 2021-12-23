@@ -5,12 +5,11 @@ import numpy as np
 from skimage.io import imread
 from pytorch3d.io import load_obj
 
-from modules.util import mymobilenetv2, AntiAliasInterpolation2d
+from modules.util import mymobilenetv2
 from modules.renderer_util import *
 from modules.flame_config import cfg
 from modules.FLAME import FLAME
 
-import pickle
 
 
 class TDMMEstimator(nn.Module):

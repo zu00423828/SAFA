@@ -14,11 +14,11 @@ class Vgg19(torch.nn.Module):
     def __init__(self, requires_grad=False):
         super(Vgg19, self).__init__()
         vgg_pretrained_features = models.vgg19(pretrained=True).features
-        self.slice1 = torch.nn.Sequential()
-        self.slice2 = torch.nn.Sequential()
-        self.slice3 = torch.nn.Sequential()
-        self.slice4 = torch.nn.Sequential()
-        self.slice5 = torch.nn.Sequential()
+        self.slice1 = nn.Sequential()
+        self.slice2 = nn.Sequential()
+        self.slice3 = nn.Sequential()
+        self.slice4 = nn.Sequential()
+        self.slice5 = nn.Sequential()
         for x in range(2):
             self.slice1.add_module(str(x), vgg_pretrained_features[x])
         for x in range(2, 7):
@@ -30,9 +30,9 @@ class Vgg19(torch.nn.Module):
         for x in range(21, 30):
             self.slice5.add_module(str(x), vgg_pretrained_features[x])
 
-        self.mean = torch.nn.Parameter(data=torch.Tensor(np.array([0.485, 0.456, 0.406]).reshape((1, 3, 1, 1))),
+        self.mean = nn.Parameter(data=torch.Tensor(np.array([0.485, 0.456, 0.406]).reshape((1, 3, 1, 1))),
                                        requires_grad=False)
-        self.std = torch.nn.Parameter(data=torch.Tensor(np.array([0.229, 0.224, 0.225]).reshape((1, 3, 1, 1))),
+        self.std = nn.Parameter(data=torch.Tensor(np.array([0.229, 0.224, 0.225]).reshape((1, 3, 1, 1))),
                                       requires_grad=False)
 
         if not requires_grad:
@@ -50,7 +50,7 @@ class Vgg19(torch.nn.Module):
         return out
 
 
-class ImagePyramide(torch.nn.Module):
+class ImagePyramide(nn.Module):
     """
     Create image pyramide for computing pyramide perceptual loss.
     """
@@ -124,7 +124,7 @@ def detach_kp(kp):
     return {key: value.detach() for key, value in kp.items()}
 
 
-class GeneratorFullModel(torch.nn.Module):
+class GeneratorFullModel(nn.Module):
     """
     Merge all generator related updates into single model for better multi-gpu usage
     """
@@ -257,7 +257,7 @@ class GeneratorFullModel(torch.nn.Module):
         return loss_values, generated
 
 
-class DiscriminatorFullModel(torch.nn.Module):
+class DiscriminatorFullModel(nn.Module):
     """
     Merge all discriminator related updates into single model for better multi-gpu usage
     """
@@ -292,7 +292,7 @@ class DiscriminatorFullModel(torch.nn.Module):
         return loss_values
 
 
-class TdmmFullModel(torch.nn.Module):
+class TdmmFullModel(nn.Module):
     def __init__(self, tdmm):
         super(TdmmFullModel, self).__init__()
         self.tdmm = tdmm

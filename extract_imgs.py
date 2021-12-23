@@ -1,7 +1,6 @@
 import os
 import cv2
 import numpy as np
-from skimage import io, img_as_float32
 from tqdm import tqdm
 import multiprocessing
 from imageio import mimread
