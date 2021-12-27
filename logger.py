@@ -9,7 +9,7 @@ from skimage.draw import circle
 
 import matplotlib.pyplot as plt
 import collections
-
+from torch.utils.tensorboard import SummaryWriter
 from optic_flow_utils import *
 
 from modules.util import make_coordinate_grid
@@ -17,7 +17,7 @@ from modules.util import make_coordinate_grid
 
 class Logger:
     def __init__(self, log_dir, checkpoint_freq=100, visualizer_params=None, zfill_num=8, log_file_name='log.txt'):
-
+        self.writer=SummaryWriter(os.path.join(log_dir,'vis'))
         self.loss_list = []
         self.cpk_dir = log_dir
         self.visualizations_dir = os.path.join(log_dir, 'train-vis')
@@ -44,7 +44,11 @@ class Logger:
     def visualize_rec(self, inp, out):
         image = self.visualizer.visualize(inp['driving'], inp['source'], out)
         imageio.imsave(os.path.join(self.visualizations_dir, "%s-rec.png" % str(self.epoch).zfill(self.zfill_num)), image)
-
+    def summary_img(self,inp,out,step):
+        img=self.visualizer.visualize(inp['driving'], inp['source'], out)
+        self.writer.add_image('train_result',img,global_step=step,dataformats="HWC")
+    def summary_losses(self,losses,step):
+        self.writer.add_scalars('train',{key: value.mean().detach().data.cpu().numpy() for key, value in losses.items()},step)
     def save_cpk(self, emergent=False):
         cpk = {k: v.state_dict() for k, v in self.models.items()}
         cpk['epoch'] = self.epoch
@@ -103,8 +107,9 @@ class Logger:
             self.names = list(losses.keys())
         self.loss_list.append(list(losses.values()))
 
-    def log_epoch(self, epoch, models, inp, out):
+    def log_epoch(self, epoch,step, models, inp, out):
         self.epoch = epoch
+        self.step=step
         self.models = models
         if (self.epoch + 1) % self.checkpoint_freq == 0:
             self.save_cpk()

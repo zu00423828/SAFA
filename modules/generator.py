@@ -109,8 +109,6 @@ class OcclusionAwareGenerator(nn.Module):
                 output_dict['occlusion_map1'] = occlusion_map1
                 occlusion_map2 = dense_motion['occlusion_map2']
                 output_dict['occlusion_map2'] = occlusion_map2
-            else:
-                occlusion_map = None
             deformation = dense_motion['deformation']
 
             out = self.deform_input(out, deformation)

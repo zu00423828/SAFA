@@ -150,7 +150,7 @@ class GeneratorFullModel(nn.Module):
         self.with_eye = with_eye
 
     def forward(self, x):
-        image_size = x['source'].shape[2]
+        # image_size = x['source'].shape[2]
 
         kp_source = self.kp_extractor(x['source'])
         kp_driving = self.kp_extractor(x['driving'])
@@ -202,7 +202,7 @@ class GeneratorFullModel(nn.Module):
 
                 for i, weight in enumerate(self.loss_weights['perceptual']):
                     value = torch.abs(gen_driving_vgg[i] - driving_real_vgg[i].detach()).mean()
-                    value_total += self.loss_weights['perceptual'][i] * value
+                    value_total += weight * value
                 loss_values['perceptual'] = value_total
 
         if self.loss_weights['generator_gan'] != 0:

@@ -81,9 +81,9 @@ def train(config, generator, discriminator, kp_detector, tdmm,
     with Logger(log_dir=log_dir, visualizer_params=config['visualizer_params'], checkpoint_freq=train_params['checkpoint_freq']) as logger:
         for epoch in trange(start_epoch, train_params['num_epochs']):
 
-            dataloader.sampler.set_epoch(epoch)
-
-            for x in tqdm(dataloader):
+            dataloader.sampler.set_epoch(epoch) 
+            for step,x in enumerate(tqdm(dataloader)):
+                global_step=len(dataloader)*epoch+step
                 x['source'] = x['source'].to(local_rank)
                 x['driving'] = x['driving'].to(local_rank)
                 x['source_ldmk_2d'] = x['source_ldmk_2d'].to(local_rank)
@@ -117,14 +117,16 @@ def train(config, generator, discriminator, kp_detector, tdmm,
                 losses_generator.update(losses_discriminator)
                 losses = {key: value.mean().detach().data.cpu().numpy() for key, value in losses_generator.items()}
                 logger.log_iter(losses=losses)
-
+                if step%100==0:
+                    logger.summary_img(losses,global_step)
+                    logger.summary_img(x,generated,global_step)
             scheduler_generator.step()
             scheduler_discriminator.step()
             scheduler_kp_detector.step()
             scheduler_tdmm.step()
-
+        
             if dist.get_rank() == 0:
-                logger.log_epoch(epoch, {'generator': generator,
+                logger.log_epoch(epoch,step, {'generator': generator,
                                         'discriminator': discriminator,
                                         'kp_detector': kp_detector,
                                         'tdmm': tdmm,
