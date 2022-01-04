@@ -1,5 +1,5 @@
 dataset_params:
-  root_dir: /home/yuan/hdd/png
+  root_dir: /home/yuan/hdd/video
   meta_dir: /home/yuan/hdd/ldmk_out
   frame_shape: [256, 256, 3]
   id_sampling: False
@@ -47,10 +47,10 @@ train_params:
   num_epochs: 50
   num_repeats: 5
   epoch_milestones: [15, 30, 45]
-  lr_generator: 2.0e-4
-  lr_discriminator: 2.0e-4
-  lr_kp_detector: 2.0e-4
-  lr_tdmm: 2.0e-4
+  lr_generator: 2.0e-5
+  lr_discriminator: 2.0e-5
+  lr_kp_detector: 2.0e-5
+  lr_tdmm: 2.0e-5
   batch_size: 2
   scales: [1, 0.5, 0.25, 0.125]
   checkpoint_freq: 1

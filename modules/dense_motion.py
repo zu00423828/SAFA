@@ -81,7 +81,7 @@ class DenseMotionNetwork(nn.Module):
         return sparse_deformed
 
     def forward(self, source_image, kp_driving=None, kp_source=None, render_ops=None):
-        if type(render_ops) != type(None):
+        if render_ops != None:
             reenact = render_ops['reenact']
             motion_field = render_ops['motion_field']
             source_normal_map = render_ops['source_normal_images']
@@ -89,7 +89,7 @@ class DenseMotionNetwork(nn.Module):
 
         if self.scale_factor != 1:
             source_image = self.down(source_image)
-            if type(render_ops) != type(None):
+            if render_ops != None:
                 reenact = self.down(reenact)
                 motion_field = self.down_motion(motion_field)
                 source_normal_map = self.down(source_normal_map)
@@ -108,7 +108,7 @@ class DenseMotionNetwork(nn.Module):
         identity_grid = identity_grid.unsqueeze(0).repeat(bs, 1, 1, 1).permute(0, 3, 1, 2)
         motion_field = motion_field + identity_grid
 
-        if type(render_ops) != type(None):
+        if render_ops != None:
             reenact = reenact.unsqueeze(1)
             source_normal_map = source_normal_map.unsqueeze(1)
             driving_normal_map = driving_normal_map.unsqueeze(1)

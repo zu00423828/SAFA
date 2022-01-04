@@ -126,7 +126,7 @@ class FramesDataset(Dataset):
             video_array, t_flip, h_flip = self.transform(video_array)
             if t_flip:
                 frame_idx = frame_idx[::-1]
-
+                
         out = {}
         if self.is_train:
             f = open(os.path.join(self.meta_dir, video_name.replace('.mp4','') + '.pkl'), 'rb')
@@ -255,3 +255,7 @@ class ImageDataset(Dataset):
         return out
 
 
+if __name__=='__main__':
+    dt=FramesDataset('/home/yuan/hdd/png','/home/yuan/hdd/ldmk_out')
+    # print(dt[0])
+    dt[0]

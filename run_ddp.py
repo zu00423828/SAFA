@@ -1,4 +1,4 @@
-import os, sys
+import os
 import yaml
 from argparse import ArgumentParser
 from time import gmtime, strftime,localtime
@@ -22,9 +22,6 @@ import torch.distributed as dist
 
 if __name__ == "__main__":
 
-    if sys.version_info[0] < 3:
-        raise Exception("You must use Python 3 or higher. Recommended version is Python 3.7")
-
     parser = ArgumentParser()
     parser.add_argument("--local_rank", default=0, type=int)
     parser.add_argument("--config", required=True, help="path to config")
@@ -40,7 +37,7 @@ if __name__ == "__main__":
         log_dir = os.path.join(*os.path.split(opt.checkpoint)[:-1])
     else:
         log_dir = os.path.join(opt.log_dir, os.path.basename(opt.config).split('.')[0])
-        log_dir += ' ' + strftime("%d_%m_%y_%H.%M.%S", localtime())
+        log_dir += '_' + strftime("%d_%m_%y_%H.%M.%S", localtime())
 
     if opt.mode == 'train' or opt.mode == 'train_tdmm':
         pass

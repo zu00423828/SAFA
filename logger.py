@@ -48,11 +48,13 @@ class Logger:
         img=self.visualizer.visualize(inp['driving'], inp['source'], out)
         self.writer.add_image('train_result',img,global_step=step,dataformats="HWC")
     def summary_losses(self,losses,step):
-        self.writer.add_scalars('train',{key: value.mean().detach().data.cpu().numpy() for key, value in losses.items()},step)
+        for key,value in losses.items():
+            self.writer.add_scalar(f'train/{key}',value,step)
     def save_cpk(self, emergent=False):
         cpk = {k: v.state_dict() for k, v in self.models.items()}
         cpk['epoch'] = self.epoch
-        cpk_path = os.path.join(self.cpk_dir, '%s-checkpoint.pth.tar' % str(self.epoch).zfill(self.zfill_num)) 
+        cpk['step']=self.step
+        cpk_path = os.path.join(self.cpk_dir, f'{str(self.epoch).zfill(self.zfill_num)}-{self.step:08d}-checkpoint.pth.tar' ) 
         if not (os.path.exists(cpk_path) and emergent):
             torch.save(cpk, cpk_path)
 
@@ -60,7 +62,7 @@ class Logger:
     def load_cpk(checkpoint_path, generator=None, discriminator=None, kp_detector=None, tdmm=None,
                  optimizer_generator=None, optimizer_discriminator=None, optimizer_kp_detector=None, optimizer_tdmm=None,
                  local_rank=None):
-        checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
+        checkpoint = torch.load(checkpoint_path)#, map_location=torch.device('cpu'))
         if generator is not None:
             generator.load_state_dict(checkpoint['generator'])
             generator.to(local_rank)
@@ -90,8 +92,10 @@ class Logger:
 
         if optimizer_tdmm is not None:
             optimizer_tdmm.load_state_dict(checkpoint['optimizer_tdmm'])
-
-        return checkpoint['epoch']
+        step=0
+        if 'step' in checkpoint:
+            step=checkpoint['step']
+        return checkpoint['epoch'],step
 
     def __enter__(self):
         return self
@@ -106,6 +110,12 @@ class Logger:
         if self.names is None:
             self.names = list(losses.keys())
         self.loss_list.append(list(losses.values()))
+    def log_step(self,epoch,step,model):
+        self.epoch=epoch
+        self.step=step
+        self.models=model
+        if (self.epoch + 1) % self.checkpoint_freq == 0:
+            self.save_cpk()
 
     def log_epoch(self, epoch,step, models, inp, out):
         self.epoch = epoch
@@ -113,7 +123,7 @@ class Logger:
         self.models = models
         if (self.epoch + 1) % self.checkpoint_freq == 0:
             self.save_cpk()
-        self.log_scores(self.names)
+        # self.log_scores(self.names)
         self.visualize_rec(inp, out)
 
     def log_epoch_tdmm(self, epoch, models):
@@ -121,7 +131,7 @@ class Logger:
         self.models = models
         if (self.epoch + 1) % self.checkpoint_freq == 0:
             self.save_cpk()
-        self.log_scores(self.names)
+        # self.log_scores(self.names)
 
 class Visualizer:
     def __init__(self, kp_size=5, draw_border=False, colormap='gist_rainbow'):
@@ -181,11 +191,11 @@ class Visualizer:
         driving = np.transpose(driving, [0, 2, 3, 1])
         images.append((driving, kp_driving))
 
-        # Deformed image
-        if 'deformed' in out:
-            deformed = out['deformed'].data.cpu().numpy()
-            deformed = np.transpose(deformed, [0, 2, 3, 1])
-            images.append(deformed)
+        # # Deformed image
+        # if 'deformed' in out:
+        #     deformed = out['deformed'].data.cpu().numpy()
+        #     deformed = np.transpose(deformed, [0, 2, 3, 1])
+        #     images.append(deformed)
 
         # Result with and without keypoints
         prediction = out['prediction'].data.cpu().numpy()
@@ -208,90 +218,90 @@ class Visualizer:
             occlusion_map1 = np.transpose(occlusion_map1, [0, 2, 3, 1])
             images.append(occlusion_map1)
 
-        # Deformed images according to each individual transform
-        if 'sparse_deformed' in out:
-            full_mask = []
-            for i in range(out['sparse_deformed'].shape[1]):
-                image = out['sparse_deformed'][:, i].data.cpu()
-                image = F.interpolate(image, size=source.shape[1:3])
-                mask = out['mask'][:, i:(i+1)].data.cpu().repeat(1, 3, 1, 1)
-                mask = F.interpolate(mask, size=source.shape[1:3])
-                image = np.transpose(image.numpy(), (0, 2, 3, 1))
-                mask = np.transpose(mask.numpy(), (0, 2, 3, 1))
+        # # Deformed images according to each individual transform
+        # if 'sparse_deformed' in out:
+        #     full_mask = []
+        #     for i in range(out['sparse_deformed'].shape[1]):
+        #         image = out['sparse_deformed'][:, i].data.cpu()
+        #         image = F.interpolate(image, size=source.shape[1:3])
+        #         mask = out['mask'][:, i:(i+1)].data.cpu().repeat(1, 3, 1, 1)
+        #         mask = F.interpolate(mask, size=source.shape[1:3])
+        #         image = np.transpose(image.numpy(), (0, 2, 3, 1))
+        #         mask = np.transpose(mask.numpy(), (0, 2, 3, 1))
 
-                if i != 0:
-                    color = np.array(self.colormap((i - 1) / (out['sparse_deformed'].shape[1] - 1)))[:3]
-                else:
-                    color = np.array((0, 0, 0))
+        #         if i != 0:
+        #             color = np.array(self.colormap((i - 1) / (out['sparse_deformed'].shape[1] - 1)))[:3]
+        #         else:
+        #             color = np.array((0, 0, 0))
 
-                color = color.reshape((1, 1, 1, 3))
+        #         color = color.reshape((1, 1, 1, 3))
 
-                images.append(image)
-                if i != 0:
-                    images.append(mask * color)
-                else:
-                    images.append(mask)
+        #         images.append(image)
+        #         if i != 0:
+        #             images.append(mask * color)
+        #         else:
+        #             images.append(mask)
 
-                full_mask.append(mask * color)
-            images.append(sum(full_mask))
+        #         full_mask.append(mask * color)
+        #     images.append(sum(full_mask))
 
-        if 'reenact' in out:
-            image = out['reenact'].data.cpu()
-            image = np.transpose(image.numpy(), (0, 2, 3, 1))
-            images.append(image)
+        # if 'reenact' in out:
+        #     image = out['reenact'].data.cpu()
+        #     image = np.transpose(image.numpy(), (0, 2, 3, 1))
+        #     images.append(image)
 
-        if 'mask' in out:
-            full_mask = []
-            full_mask_bin = []
+        # if 'mask' in out:
+        #     full_mask = []
+        #     full_mask_bin = []
 
-            mask_bin = F.interpolate(out['mask'], size=source.shape[1:3], mode='bilinear')
-            mask_bin = (torch.max(mask_bin, dim=1, keepdim=True)[0] == mask_bin).float()
-            tdmm_mask = None
+        #     mask_bin = F.interpolate(out['mask'], size=source.shape[1:3], mode='bilinear')
+        #     mask_bin = (torch.max(mask_bin, dim=1, keepdim=True)[0] == mask_bin).float()
+        #     tdmm_mask = None
 
-            # formulate mask bin
-            for i in range(out['mask'].shape[1]):
-                mask = out['mask'][:, i:(i+1)].data.cpu().repeat(1, 3, 1, 1)
-                mask = F.interpolate(mask, size=source.shape[1:3], mode='bilinear')
-                mask = np.transpose(mask.numpy(), (0, 2, 3, 1))
-                mask_bin_part = mask_bin[:, i:(i+1)].data.cpu().repeat(1, 3, 1, 1)
-                mask_bin_part = np.transpose(mask_bin_part.numpy(), (0, 2, 3, 1))
+        #     # formulate mask bin
+        #     for i in range(out['mask'].shape[1]):
+        #         mask = out['mask'][:, i:(i+1)].data.cpu().repeat(1, 3, 1, 1)
+        #         mask = F.interpolate(mask, size=source.shape[1:3], mode='bilinear')
+        #         mask = np.transpose(mask.numpy(), (0, 2, 3, 1))
+        #         mask_bin_part = mask_bin[:, i:(i+1)].data.cpu().repeat(1, 3, 1, 1)
+        #         mask_bin_part = np.transpose(mask_bin_part.numpy(), (0, 2, 3, 1))
 
-                if i != 0:
-                    if i != (out['mask'].shape[1] - 1):
-                        color = np.array(self.colormap((i - 1) / (out['mask'].shape[1] - 1)))[:3]
-                    else:
-                        tdmm_mask = mask_bin_part
-                        color = np.array((1.0, 1.0, 1.0))    # full white for 3D mask
-                else:
-                    color = np.array((0, 0, 0))
+        #         if i != 0:
+        #             if i != (out['mask'].shape[1] - 1):
+        #                 color = np.array(self.colormap((i - 1) / (out['mask'].shape[1] - 1)))[:3]
+        #             else:
+        #                 tdmm_mask = mask_bin_part
+        #                 color = np.array((1.0, 1.0, 1.0))    # full white for 3D mask
+        #         else:
+        #             color = np.array((0, 0, 0))
 
-                color = color.reshape((1, 1, 1, 3))
+        #         color = color.reshape((1, 1, 1, 3))
 
-                full_mask.append(mask * color)
-                full_mask_bin.append(mask_bin_part * color)
+        #         full_mask.append(mask * color)
+        #         full_mask_bin.append(mask_bin_part * color)
 
-            images.append(sum(full_mask))
-            images.append(0.3 * driving + 0.7 * sum(full_mask))
-            images.append(sum(full_mask_bin))
-            images.append(0.3 * driving + 0.7 * sum(full_mask_bin))
-            images.append(tdmm_mask)
+        #     images.append(sum(full_mask))
+        #     images.append(0.3 * driving + 0.7 * sum(full_mask))
+        #     images.append(sum(full_mask_bin))
+        #     images.append(0.3 * driving + 0.7 * sum(full_mask_bin))
+        #     images.append(tdmm_mask)
 
-        identity_grid = make_coordinate_grid((source.shape[1], source.shape[2]), type=source.type())
-        identity_grid = identity_grid.data.cpu().numpy()
+        # identity_grid = make_coordinate_grid((source.shape[1], source.shape[2]), type=source.type())
+        # identity_grid = identity_grid.data.cpu().numpy()
 
-        if 'motion_field' in out and out['motion_field'].shape[0] == 1:
-            motion_field = F.interpolate(out['motion_field'], size=source.shape[1:3], mode='bilinear')
-            motion_field = motion_field.squeeze().permute(1, 2, 0).data.cpu().numpy()
-            motion_field = motion_field - identity_grid
-            optic_flow = flow_to_image(motion_field)[None, ...]
-            images.append(optic_flow)
+        # if 'motion_field' in out and out['motion_field'].shape[0] == 1:
+        #     motion_field = F.interpolate(out['motion_field'], size=source.shape[1:3], mode='bilinear')
+        #     motion_field = motion_field.squeeze().permute(1, 2, 0).data.cpu().numpy()
+        #     motion_field = motion_field - identity_grid
+        #     optic_flow = flow_to_image(motion_field)[None, ...]
+        #     images.append(optic_flow)
         
-        if 'deformation' in out and out['deformation'].shape[0] == 1:
-            deformation = F.interpolate(out['deformation'].permute(0, 3, 1, 2), size=source.shape[1:3], mode='bilinear')
-            deformation = deformation.squeeze().permute(1, 2, 0).data.cpu().numpy()
-            deformation = deformation - identity_grid
-            optic_flow = flow_to_image(deformation)[None, ...]
-            images.append(optic_flow)
+        # if 'deformation' in out and out['deformation'].shape[0] == 1:
+        #     deformation = F.interpolate(out['deformation'].permute(0, 3, 1, 2), size=source.shape[1:3], mode='bilinear')
+        #     deformation = deformation.squeeze().permute(1, 2, 0).data.cpu().numpy()
+        #     deformation = deformation - identity_grid
+        #     optic_flow = flow_to_image(deformation)[None, ...]
+        #     images.append(optic_flow)
         
         image = self.create_image_grid(*images)
         image = (255 * image).astype(np.uint8)

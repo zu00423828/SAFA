@@ -9,7 +9,6 @@ from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data import DataLoader
 from frames_dataset import DatasetRepeater
 
-import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 
@@ -29,18 +28,17 @@ def train(config, generator, discriminator, kp_detector, tdmm,
 
     if checkpoint is not None:
         if tdmm_checkpoint is   None:
-                start_epoch = Logger.load_cpk(checkpoint, generator, discriminator, kp_detector,
+                start_epoch,start_step = Logger.load_cpk(checkpoint, generator, discriminator, kp_detector,
                                       tdmm,optimizer_generator, optimizer_discriminator,
                                       None if train_params['lr_kp_detector'] == 0 else optimizer_kp_detector,
                                       optimizer_tdmm, local_rank)
         else :
-            start_epoch = Logger.load_cpk(checkpoint_path = checkpoint, generator = generator, discriminator = discriminator, 
+            start_epoch,start_step = Logger.load_cpk(checkpoint_path = checkpoint, generator = generator, discriminator = discriminator, 
                                         tdmm=None,
                                         optimizer_generator = optimizer_generator, optimizer_discriminator = optimizer_discriminator,
                                         optimizer_kp_detector = None if train_params['lr_kp_detector'] == 0 else optimizer_kp_detector,
                                         optimizer_tdmm=None,
                                         local_rank = local_rank)
-            print(start_epoch)
             start_epoch = 0
             tdmm_checkpoint = torch.load(tdmm_checkpoint)
             tdmm.load_state_dict(tdmm_checkpoint['tdmm'], strict=False)
@@ -77,13 +75,14 @@ def train(config, generator, discriminator, kp_detector, tdmm,
 
     # fix bn layers of pretrained tdmm model 
     generator_full._module_copies[0].tdmm.apply(fix_bn)
-
+    print('load model finish or init finish')
+    print(f'now epoch {start_epoch},step {start_step} ')
     with Logger(log_dir=log_dir, visualizer_params=config['visualizer_params'], checkpoint_freq=train_params['checkpoint_freq']) as logger:
+        step=start_step
         for epoch in trange(start_epoch, train_params['num_epochs']):
-
             dataloader.sampler.set_epoch(epoch) 
-            for step,x in enumerate(tqdm(dataloader)):
-                global_step=len(dataloader)*epoch+step
+            for x in tqdm(dataloader):
+                step+=1
                 x['source'] = x['source'].to(local_rank)
                 x['driving'] = x['driving'].to(local_rank)
                 x['source_ldmk_2d'] = x['source_ldmk_2d'].to(local_rank)
@@ -116,24 +115,33 @@ def train(config, generator, discriminator, kp_detector, tdmm,
 
                 losses_generator.update(losses_discriminator)
                 losses = {key: value.mean().detach().data.cpu().numpy() for key, value in losses_generator.items()}
-                logger.log_iter(losses=losses)
-                if step%100==0:
-                    logger.summary_img(losses,global_step)
-                    logger.summary_img(x,generated,global_step)
+                # logger.log_iter(losses=losses)
+                if step%100 == 0:
+                    logger.summary_losses(losses,step)
+                    logger.summary_img(x,generated,step)
+                if step%2000 == 0:
+                    logger.log_step(epoch,step, {'generator': generator,
+                                    'discriminator': discriminator,
+                                    'kp_detector': kp_detector,
+                                    'tdmm': tdmm,
+                                    'optimizer_generator': optimizer_generator,
+                                    'optimizer_discriminator': optimizer_discriminator,
+                                    'optimizer_kp_detector': optimizer_kp_detector,
+                                    'optimizer_tdmm': optimizer_tdmm})
             scheduler_generator.step()
             scheduler_discriminator.step()
             scheduler_kp_detector.step()
             scheduler_tdmm.step()
         
-            if dist.get_rank() == 0:
-                logger.log_epoch(epoch,step, {'generator': generator,
-                                        'discriminator': discriminator,
-                                        'kp_detector': kp_detector,
-                                        'tdmm': tdmm,
-                                        'optimizer_generator': optimizer_generator,
-                                        'optimizer_discriminator': optimizer_discriminator,
-                                        'optimizer_kp_detector': optimizer_kp_detector,
-                                        'optimizer_tdmm': optimizer_tdmm}, inp=x, out=generated)
+
+            logger.log_epoch(epoch,step, {'generator': generator,
+                                    'discriminator': discriminator,
+                                    'kp_detector': kp_detector,
+                                    'tdmm': tdmm,
+                                    'optimizer_generator': optimizer_generator,
+                                    'optimizer_discriminator': optimizer_discriminator,
+                                    'optimizer_kp_detector': optimizer_kp_detector,
+                                    'optimizer_tdmm': optimizer_tdmm}, inp=x, out=generated)
 
 
 def train_tdmm(config, tdmm, log_dir, dataset, local_rank, tdmm_checkpoint=None):
@@ -182,6 +190,4 @@ def train_tdmm(config, tdmm, log_dir, dataset, local_rank, tdmm_checkpoint=None)
 
             losses = {key: value.data for key, value in losses_tdmm.items()}
             logger.log_iter(losses=losses)
-
-        if dist.get_rank() == 0:
-            logger.log_epoch_tdmm(epoch, {'tdmm': tdmm, 'optimizer_tdmm': optimizer_tdmm})
+        logger.log_epoch_tdmm(epoch, {'tdmm': tdmm, 'optimizer_tdmm': optimizer_tdmm})
