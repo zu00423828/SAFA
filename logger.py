@@ -12,7 +12,6 @@ import collections
 from torch.utils.tensorboard import SummaryWriter
 from optic_flow_utils import *
 
-from modules.util import make_coordinate_grid
 
 
 class Logger:
@@ -205,18 +204,18 @@ class Visualizer:
             images.append((prediction, kp_norm))
         images.append(prediction)
 
-        # Occlusion map
-        if 'occlusion_map1' in out:
-            occlusion_map = out['occlusion_map1'].data.cpu().repeat(1, 3, 1, 1)
-            occlusion_map = F.interpolate(occlusion_map, size=source.shape[1:3]).numpy()
-            occlusion_map = np.transpose(occlusion_map, [0, 2, 3, 1])
-            images.append(occlusion_map)
+        # # Occlusion map
+        # if 'occlusion_map1' in out:
+        #     occlusion_map = out['occlusion_map1'].data.cpu().repeat(1, 3, 1, 1)
+        #     occlusion_map = F.interpolate(occlusion_map, size=source.shape[1:3]).numpy()
+        #     occlusion_map = np.transpose(occlusion_map, [0, 2, 3, 1])
+        #     images.append(occlusion_map)
         
-        if 'occlusion_map2' in out:
-            occlusion_map1 = 1.0 - out['occlusion_map2'].data.cpu().repeat(1, 3, 1, 1)
-            occlusion_map1 = F.interpolate(occlusion_map1, size=source.shape[1:3]).numpy()
-            occlusion_map1 = np.transpose(occlusion_map1, [0, 2, 3, 1])
-            images.append(occlusion_map1)
+        # if 'occlusion_map2' in out:
+        #     occlusion_map1 = 1.0 - out['occlusion_map2'].data.cpu().repeat(1, 3, 1, 1)
+        #     occlusion_map1 = F.interpolate(occlusion_map1, size=source.shape[1:3]).numpy()
+        #     occlusion_map1 = np.transpose(occlusion_map1, [0, 2, 3, 1])
+        #     images.append(occlusion_map1)
 
         # # Deformed images according to each individual transform
         # if 'sparse_deformed' in out:

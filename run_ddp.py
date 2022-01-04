@@ -1,7 +1,7 @@
 import os
 import yaml
 from argparse import ArgumentParser
-from time import gmtime, strftime,localtime
+from time import  strftime,localtime
 from shutil import copy
 
 from frames_dataset import FramesDataset, ImageDataset

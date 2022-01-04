@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import pickle
-
+import torch.nn.functional as F
 
 from .lbs import lbs, batch_rodrigues, vertices2landmarks, rot_mat_to_euler
 
@@ -28,7 +28,7 @@ class FLAME(nn.Module):
     def __init__(self, config):
         super(FLAME, self).__init__()
         print("creating the FLAME Decoder")
-        with open(config.flame_model_path, 'rb') as f:
+        with open(config['flame_model_path'], 'rb') as f:
             ss = pickle.load(f, encoding='latin1')
             flame_model = Struct(**ss)
 
@@ -38,7 +38,7 @@ class FLAME(nn.Module):
         self.register_buffer('v_template', to_tensor(to_np(flame_model.v_template), dtype=self.dtype))
         # The shape components and expression
         shapedirs = to_tensor(to_np(flame_model.shapedirs), dtype=self.dtype)
-        shapedirs = torch.cat([shapedirs[:,:,:config.n_shape], shapedirs[:,:,300:300+config.n_exp]], 2)
+        shapedirs = torch.cat([shapedirs[:,:,:config['n_shape']], shapedirs[:,:,300:300+config['n_exp']]], 2)
         self.register_buffer('shapedirs', shapedirs)
         # The pose components
         num_pose_basis = flame_model.posedirs.shape[-1]
@@ -59,7 +59,7 @@ class FLAME(nn.Module):
                                                           requires_grad=False))
 
         # Static and Dynamic Landmark embeddings for FLAME
-        lmk_embeddings = np.load(config.flame_lmk_embedding_path, allow_pickle=True, encoding='latin1')
+        lmk_embeddings = np.load(config['flame_lmk_embedding_path'], allow_pickle=True, encoding='latin1')
         lmk_embeddings = lmk_embeddings[()]
         self.register_buffer('lmk_faces_idx', torch.from_numpy(lmk_embeddings['static_lmk_faces_idx']).long())
         self.register_buffer('lmk_bary_coords', torch.from_numpy(lmk_embeddings['static_lmk_bary_coords']).to(self.dtype))
@@ -133,14 +133,13 @@ class FLAME(nn.Module):
                 lmk_bary_coords: torch.tensor N X L X 3, dtype = torch.float32
                     The tensor of barycentric coordinates that are used to interpolate
                     the landmarks
-
             Returns:
                 landmarks: torch.tensor NxLx3, dtype = torch.float32
                     The coordinates of the landmarks for each mesh in the batch
         """
         # Extract the indices of the vertices for each face
         # NxLx3
-        batch_size, num_verts = vertices.shape[:2]
+        batch_size, num_verts = vertices.shape[:dd2]
         lmk_faces = torch.index_select(faces, 0, lmk_faces_idx.view(-1)).view(
             1, -1, 3).view(batch_size, lmk_faces_idx.shape[1], -1)
 
@@ -203,3 +202,4 @@ class FLAME(nn.Module):
                                        self.full_lmk_bary_coords.repeat(bz, 1, 1))
         #print(landmarks3d.shape)  torch.Size([8, 68, 3])
         return vertices, landmarks2d, landmarks3d
+

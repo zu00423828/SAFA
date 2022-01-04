@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html >
+<head lang="UTF-8">
+    <meta charset="UTF-8">
+    <title>Upload new File</title>
+</head>
+<body>
+    <h1>&nbsp;臉部操控影片合成</h1>
+    <form action="/job" method="post">
+        <p> &emsp;請選擇使用source image：
+        <select name=source id=source> 
+        </select></p> 
+        <p>&emsp;請選擇使用driving video：
+        <select name=driving id=driving>
+        </select></p>
+        <p>&emsp;儲存的檔名：<input type="text" id='save_filename' name='save_filename'></p>
+        <p>&emsp;使用 eye_mask：<input type='checkbox' name='with_eye' ></p>
+        <p>&emsp;<input type="button" onclick="postdata()" value=合成 onchange=""></p>
+        <p><a href='' id="result">下載</a><p>
+    </form>
+</body>
+</html>
+
+
+<script>
+    let jsondata
+    function getdata(){
+        source=document.getElementById("source")
+        driving=document.getElementById("driving")
+        fetch("/data",
+        ).then(res=>{
+            return res.json()
+        }).then(listjson=>{
+            console.log(listjson)
+            i=0
+            source.options[i]=new Option(listjson['source'][0],listjson['source'][0]);
+            driving.options[i]=new Option(listjson['driving'][0],listjson['driving'][0]);
+     
+        });
+        
+    }
+    function postdata() {
+         const fd = new FormData(document.querySelector('form'));
+         console.log(fd)
+         fetch("/job", {
+              method: 'POST',
+              body:fd
+         })
+         .then(res=>{
+            return res.text();
+         }).then(ressult=>{
+            console.log(ressult);
+            download_button=document.getElementById('result');
+            save_path=document.getElementById('save_filename');
+            console.log(save_path.textContent)
+            download_button.textContent="下載"
+            download_button.addEventListener('click',function(){
+                download_link="/download/"+save_path.value
+                console.log(download_link)
+                url = new URL(window.location.origin +download_link)
+                window.open(url.toString(),"_blank")
+            })
+            if(ressult=="sussess")
+            {
+                window.alert("影片合成完成");
+            }
+            else
+                window.alert("已經合成過，或是找不到檔案");
+         });
+    }
+
+    window.onload=function(){
+        getdata()
+    }
+</script>

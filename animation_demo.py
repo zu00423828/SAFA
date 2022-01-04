@@ -1,6 +1,6 @@
 import matplotlib
 matplotlib.use('Agg')
-import os, sys
+import os
 import yaml
 from argparse import ArgumentParser
 from tqdm import tqdm
@@ -20,9 +20,6 @@ from scipy.spatial import ConvexHull
 import moviepy.editor as mp
 import subprocess
 import requests
-
-if sys.version_info[0] < 3:
-    raise Exception("You must use Python 3 or higher. Recommended version is Python 3.7")
 
 def load_checkpoints(config_path, checkpoint_path, cpu=False):
 
@@ -166,7 +163,40 @@ def laod_stylegan_avatar():
     image = np.frombuffer(r, np.uint8)
     image = cv2.imdecode(image, cv2.IMREAD_COLOR)
     image = resize(image, (256, 256))
+    image=cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
     return image
+    
+
+def main(source_image_pth,driving_video_pth,result_video_pth,config,checkpoint,with_eye,relative,adapt_scale):
+    if result_video_pth is None:
+        result_video_pth='result.mp4'
+    source_image = imageio.imread(source_image_pth)
+    reader = imageio.get_reader(driving_video_pth)
+    fps = reader.get_meta_data()['fps']
+    driving_video = []
+    try:
+        for im in reader:
+            driving_video.append(im)
+    except RuntimeError:
+        pass
+    reader.close()
+
+    source_image = resize(source_image, (256, 256))[..., :3]
+    driving_video = [resize(frame, (256, 256))[..., :3] for frame in driving_video]
+    generator, kp_detector, tdmm = load_checkpoints(config_path=config, checkpoint_path=checkpoint, cpu=False)
+
+
+    predictions = make_animation(source_image, driving_video, 
+                                    generator, kp_detector, tdmm, with_eye=with_eye,
+                                    relative=relative, adapt_movement_scale=adapt_scale, cpu=False)
+
+    # out_name = os.path.basename(opt.source_image_pth).split('.')[0] + "_" + os.path.basename(opt.driving_video_pth).split('.')[0]
+    imageio.mimsave('temp.mp4', [img_as_ubyte(frame) for frame in predictions], fps=fps)
+    clip=mp.VideoFileClip(driving_video_pth)
+    clip.audio.write_audiofile("temp.wav")
+    command=f"ffmpeg -y -i temp.mp4 -i temp.wav -vf fps={fps} -crf 0 -vcodec h264 -preset veryslow '{result_video_pth}' "
+    print(command)
+    subprocess.call(command,shell=True)
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -177,7 +207,7 @@ if __name__ == "__main__":
     parser.add_argument("--driving_video_pth", default='', help="path to driving video")
     parser.add_argument("--result_video_pth", default='result.mp4', help="path to output")
     parser.add_argument("--result_vis_video_pth", default='result_vis.mp4', help="path to output vis")
-    parser.add_argument('--use_random_face',default='True')
+    parser.add_argument('--use_random_face',action="store_true",)
     parser.add_argument("--with_eye", action="store_true", help="use eye part for extracting texture")
     parser.add_argument("--relative", dest="relative", action="store_true", help="use relative or absolute keypoint coordinates")
     parser.add_argument("--adapt_scale", dest="adapt_scale", action="store_true", help="adapt movement scale based on convex hull of keypoints")

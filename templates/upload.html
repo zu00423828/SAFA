@@ -1,0 +1,31 @@
+<head>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <div id='spinner' style="display: none;">
+    <div  class="spinner-border" role="status" > </div>
+    <p >請不要離開此畫面</p></div>
+
+</head>
+<h1>&nbsp;Upload new File</h1>
+
+
+<form action="/upload" method=post enctype=multipart/form-data >
+    <p>&emsp;Source：<input type=file name=source></p>
+    <p id=audio_text>&emsp;Driving：<input type="file" name=driving></p>
+    <p>&emsp;<input type=button onclick="postdata()" style="font-size: 16px" value=上傳內容 ></p>
+</form>
+<p></p>
+<p>&emsp;<a href="/select">合成</a></p>
+<script>
+    function postdata() {
+          let fd = new FormData(document.querySelector('form'));
+         fetch("/upload", {
+              method: 'POST',
+              body:fd
+         }).then(res => {
+              return res.text();
+         }).then(result => {
+              window.alert(result);
+         });
+    }
+
+</script>
