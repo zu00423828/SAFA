@@ -4,7 +4,6 @@ import torch.nn.functional as F
 import numpy as np
 from argparse import ArgumentParser
 from modules.tdmm_estimator import TDMMEstimator
-from modules.flame_config import cfg as flame_cfg
 from torch.utils.data import DataLoader
 from frames_dataset import FramesDataset, ImageDataset
 from tqdm import tqdm
@@ -22,7 +21,7 @@ if __name__ == "__main__":
 
     checkpoint = torch.load(opt.tdmm_checkpoint, map_location=torch.device('cpu'))
 
-    tdmm = TDMMEstimator(flame_cfg)
+    tdmm = TDMMEstimator()
     tdmm.load_state_dict(checkpoint['tdmm'], strict=False)
     if opt.gpu:
         tdmm = tdmm.cuda()

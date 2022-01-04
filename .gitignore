@@ -7,3 +7,8 @@ face_parsing
 *.txt
 *.yaml
 log
+*.mp4
+*.avi
+*.jpg
+*.png
+*.wav

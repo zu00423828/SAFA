@@ -10,7 +10,7 @@ from modules.generator import OcclusionAwareGenerator
 from modules.discriminator import MultiScaleDiscriminator
 from modules.keypoint_detector import KPDetector
 from modules.tdmm_estimator import TDMMEstimator
-from modules.flame_config import cfg as flame_cfg
+
 
 
 from train_ddp import train, train_tdmm
@@ -57,7 +57,7 @@ if __name__ == "__main__":
         config = yaml.load(f,yaml.FullLoader)
 
     if opt.mode == 'train_tdmm':
-        tdmm = TDMMEstimator(flame_cfg)
+        tdmm = TDMMEstimator()
 
         dataset = ImageDataset(data_dir=config['dataset_params']['root_dir'], 
                                meta_dir=config['dataset_params']['meta_dir'],
@@ -72,7 +72,7 @@ if __name__ == "__main__":
         kp_detector = KPDetector(**config['model_params']['kp_detector_params'],
                                 **config['model_params']['common_params'])
 
-        tdmm = TDMMEstimator(flame_cfg)
+        tdmm = TDMMEstimator()
 
         dataset = FramesDataset(is_train=(opt.mode == 'train'), **config['dataset_params'])
 

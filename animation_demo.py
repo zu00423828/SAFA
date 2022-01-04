@@ -14,9 +14,6 @@ import torch.nn.functional as F
 from modules.generator import OcclusionAwareGenerator
 from modules.keypoint_detector import KPDetector
 from modules.tdmm_estimator import TDMMEstimator
-from modules.flame_config import cfg as flame_cfg
-
-from logger import  Visualizer
 import cv2
 from animate import normalize_kp
 from scipy.spatial import ConvexHull
@@ -36,7 +33,7 @@ def load_checkpoints(config_path, checkpoint_path, cpu=False):
                                         **config['model_params']['common_params'])
     kp_detector = KPDetector(**config['model_params']['kp_detector_params'],
                              **config['model_params']['common_params'])
-    tdmm = TDMMEstimator(flame_cfg)
+    tdmm = TDMMEstimator()
 
     if cpu:
         checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))

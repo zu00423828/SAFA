@@ -113,5 +113,16 @@ Please refer to the [LICENSE](LICENSE.md) file.
 
 
 ## Acknowledgement
-Codes are heavily borrowed from [First Order Motion Model](https://github.com/AliaksandrSiarohin/first-order-model). 
-Some codes are also borrowed from [DECA](https://github.com/YadiraF/DECA), [generative-inpainting-pytorch](https://github.com/daa233/generative-inpainting-pytorch), [face-parsing.PyTorch](https://github.com/zllrunning/face-parsing.PyTorch), [video-preprocessing](https://github.com/AliaksandrSiarohin/video-preprocessing).
+Here we provide the list of external sources that we use or adapt from:
+1. Codes are heavily borrowed from [First Order Motion Model](https://github.com/AliaksandrSiarohin/first-order-model), [LICENSE](https://github.com/AliaksandrSiarohin/first-order-model/blob/master/LICENSE.md). 
+2. Some codes are also borrowed from:
+a. [FLAME_PyTorch](https://github.com/soubhiksanyal/FLAME_PyTorch), [LICENSE](https://github.com/soubhiksanyal/FLAME_PyTorch/blob/master/LICENSE)
+b. [generative-inpainting-pytorch](https://github.com/daa233/generative-inpainting-pytorch), [LICENSE](https://github.com/daa233/generative-inpainting-pytorch/blob/master/LICENSE)
+c. [face-parsing.PyTorch](https://github.com/zllrunning/face-parsing.PyTorch), [LICENSE](https://github.com/zllrunning/face-parsing.PyTorch/blob/master/LICENSE)
+d. [video-preprocessing](https://github.com/AliaksandrSiarohin/video-preprocessing).
+3. We adopt FLAME model resources from:
+a. [DECA](https://github.com/YadiraF/DECA), [LICENSE](https://github.com/YadiraF/DECA/blob/master/LICENSE)
+b. [FLAME](https://flame.is.tue.mpg.de), [LICENSE](https://flame.is.tue.mpg.de/modellicense.html)
+4. External Libaraies:
+a. [PyTorch3D](https://github.com/facebookresearch/pytorch3d), [LICENSE](https://github.com/facebookresearch/pytorch3d/blob/main/LICENSE)
+b. [face-alignment](https://github.com/1adrianb/face-alignment), [LICENSE](https://github.com/1adrianb/face-alignment/blob/master/LICENSE)

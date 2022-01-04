@@ -1,3 +1,4 @@
+import os
 from torch import nn
 import torch
 import torch.nn.functional as F
@@ -5,31 +6,45 @@ import numpy as np
 from skimage.io import imread
 from pytorch3d.io import load_obj
 
-from modules.util import mymobilenetv2
+from modules.util import mymobilenetv2, AntiAliasInterpolation2d
 from modules.renderer_util import *
-from modules.flame_config import cfg
 from modules.FLAME import FLAME
 
+import pickle
 
+flame_model_dir = './modules'
+flame_config = {
+    'model':{
+        'n_shape': 100,
+        'n_exp': 50,
+        'n_pose': 6,
+        'n_cam': 3,
+        'uv_size': 256,
+        'topology_path': os.path.join(flame_model_dir, 'data', 'head_template.obj'),
+        'flame_model_path': os.path.join(flame_model_dir, 'data', 'generic_model.pkl'),
+        'flame_lmk_embedding_path': os.path.join(flame_model_dir, 'data', 'landmark_embedding.npy'),
+        'face_mask_path': os.path.join(flame_model_dir, 'data', 'uv_face_mask.png'),
+        'face_eye_mask_path': os.path.join(flame_model_dir, 'data', 'uv_face_eye_mask.png')
+    },
+    'dataset':{
+        'image_size': 256
+    }
+}
 
 class TDMMEstimator(nn.Module):
-    """  
-    Some codes are borrowed from https://github.com/YadiraF/DECA
-    """
-
-    def __init__(self, flame_cfg):
+    def __init__(self):
         super(TDMMEstimator, self).__init__()
 
-        code_dim = flame_cfg.model.n_shape + flame_cfg.model.n_exp + flame_cfg.model.n_pose + flame_cfg.model.n_cam
-        self.encoder = mymobilenetv2(num_classes=code_dim, image_size=flame_cfg.dataset.image_size)
-        self.flame = FLAME(flame_cfg.model)
+        code_dim = flame_config['model']['n_shape'] + flame_config['model']['n_exp'] + flame_config['model']['n_pose'] + flame_config['model']['n_cam']
+        self.encoder = mymobilenetv2(num_classes=code_dim, image_size=flame_config['dataset']['image_size'])
+        self.flame = FLAME(flame_config['model'])
 
         # rasterizer
-        self.rasterizer = Pytorch3dRasterizer(flame_cfg.dataset.image_size)
-        self.uv_rasterizer = Pytorch3dRasterizer(flame_cfg.model.uv_size)
+        self.rasterizer = Pytorch3dRasterizer(flame_config['dataset']['image_size'])
+        self.uv_rasterizer = Pytorch3dRasterizer(flame_config['model']['uv_size'])
 
         # mesh template details
-        verts, faces, aux = load_obj(flame_cfg.model.topology_path)
+        verts, faces, aux = load_obj(flame_config['model']['topology_path'])
         uvcoords = aux.verts_uvs[None, ...]
         uvfaces = faces.textures_idx[None, ...]
         faces = faces.verts_idx[None, ...]
@@ -45,18 +60,18 @@ class TDMMEstimator(nn.Module):
         
         # face mask for rendering details
         # with eye and mouth
-        mask = imread(flame_cfg.model.face_eye_mask_path).astype(np.float32) / 255.0
+        mask = imread(flame_config['model']['face_eye_mask_path']).astype(np.float32) / 255.0
         mask = torch.from_numpy(mask[:, :, 0])[None, None, :, :].contiguous()
-        uv_face_eye_mask = F.interpolate(mask, [flame_cfg.model.uv_size, flame_cfg.model.uv_size])
+        uv_face_eye_mask = F.interpolate(mask, [flame_config['model']['uv_size'], flame_config['model']['uv_size']])
         self.register_buffer('uv_face_eye_mask', uv_face_eye_mask)
 
         # without eye and mouth
-        mask = imread(flame_cfg.model.face_mask_path).astype(np.float32) / 255.0
+        mask = imread(flame_config['model']['face_mask_path']).astype(np.float32) / 255.0
         mask = torch.from_numpy(mask[:, :, 0])[None, None, :, :].contiguous()
-        uv_face_mask = F.interpolate(mask, [flame_cfg.model.uv_size, flame_cfg.model.uv_size])
+        uv_face_mask = F.interpolate(mask, [flame_config['model']['uv_size'], flame_config['model']['uv_size']])
         self.register_buffer('uv_face_mask', uv_face_mask)
 
-        self.image_size = flame_cfg.dataset.image_size
+        self.image_size = flame_config['dataset']['image_size']
 
         self.sigmoid = nn.Sigmoid()
 
@@ -174,3 +189,4 @@ class TDMMEstimator(nn.Module):
         uv_vertices = self.uv_rasterizer(self.uvcoords.expand(batch_size, -1, -1), 
                                          self.uvfaces.expand(batch_size, -1, -1), face_vertices_)[:, :3]
         return uv_vertices
+        
