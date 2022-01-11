@@ -1,5 +1,7 @@
 import os
 import cv2
+from imageio.core.functions import imwrite
+from numpy.core.defchararray import array
 from skimage import io, img_as_float32
 from skimage.color import gray2rgb
 from sklearn.model_selection import train_test_split
@@ -7,10 +9,10 @@ from imageio import mimread
 import numpy as np
 from torch.utils.data import Dataset
 import pandas as pd
-from augmentation import AllAugmentationTransform
+from augmentation import AllAugmentationTransform,ColorJitter,RandomRotation
 import glob
 import pickle
-
+from torchvision import transforms
 
 def read_video(name, frame_shape):
     """
@@ -254,8 +256,43 @@ class ImageDataset(Dataset):
 
         return out
 
+class Fix_face_dataset(Dataset):
+    def __init__(self,data_dir,meta_dir) -> None:
+        
+        self.data_list = glob.glob(os.path.join(data_dir, '*', '*.png'))
+        self.meta_dir = meta_dir
+    def __len__(self):
+        return len(self.data_list)
+    def __getitem__(self, idx):
+        image_pth = self.data_list[idx]
+        frame_idx = int(os.path.basename(image_pth).split('.')[0])
+        video_name = image_pth.split('/')[-2]
+        image =cv2.imread(image_pth)
+        
+        colorjitter_func=ColorJitter(brightness=0.2, contrast=0.3, saturation=0.4, hue= 0.5)
+        out=colorjitter_func(image)
+        out=(np.array(out)*255).astype(np.uint8)
+        # print(out.dtype)    
+
+
+        # f = open(os.path.join(self.meta_dir, video_name.replace('.mp4','') + '.pkl'), 'rb')
+        # video_meta = pickle.load(f)
+        # ldmk = video_meta[frame_idx]['ldmk']
+        # ldmk=np.concatenate((ldmk[33].reshape(1,-1),ldmk[3:14])).astype(np.int32)
+        # print(ldmk.shape)
+        # print(np.array(out).shape)
+        # cv2.fillPoly(out,[ldmk],(0,0,0))
+        
+        # image = image.transpose((2, 0, 1))
+        return out
+
+
 
 if __name__=='__main__':
-    dt=FramesDataset('/home/yuan/hdd/png','/home/yuan/hdd/ldmk_out')
-    # print(dt[0])
-    dt[0]
+    # dt=FramesDataset('/home/yuan/hdd/png','/home/yuan/hdd/ldmk_out')
+    # # print(dt[0])
+    # dt[0]
+    dt=Fix_face_dataset('/home/yuan/hdd/png','/home/yuan/hdd/ldmk_out')
+    cv2.imwrite('123.png',dt[0])
+
+

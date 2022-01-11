@@ -1,6 +1,6 @@
 import matplotlib
 matplotlib.use('Agg')
-import os
+import os, sys
 import yaml
 from argparse import ArgumentParser
 from tqdm import tqdm
@@ -14,12 +14,15 @@ import torch.nn.functional as F
 from modules.generator import OcclusionAwareGenerator
 from modules.keypoint_detector import KPDetector
 from modules.tdmm_estimator import TDMMEstimator
-import cv2
+from modules.flame_config import cfg as flame_cfg
+
 from animate import normalize_kp
 from scipy.spatial import ConvexHull
 import moviepy.editor as mp
 import subprocess
-import requests
+import face_alignment
+import cv2
+import pickle
 
 def load_checkpoints(config_path, checkpoint_path, cpu=False):
 
@@ -51,6 +54,88 @@ def load_checkpoints(config_path, checkpoint_path, cpu=False):
     return generator, kp_detector, tdmm
 
 
+def make_video_animation(source_video, driving_video, 
+                   generator, kp_detector, tdmm, with_eye=False,
+                   relative=True, adapt_movement_scale=True, cpu=False):
+
+    def batch_orth_proj(X, camera):
+        camera = camera.clone().view(-1, 1, 3)
+        X_trans = X[:, :, :2] + camera[:, :, 1:]
+        X_trans = torch.cat([X_trans, X[:,:,2:]], 2)
+        shape = X_trans.shape
+        Xn = (camera[:, :, 0:1] * X_trans)
+        return Xn
+
+    with torch.no_grad():
+        predictions = []
+        source = torch.tensor(np.array(source_video)[np.newaxis].astype(np.float32)).permute(0, 4, 1, 2,3)
+        if not cpu:
+            source = source.cuda()
+
+
+        driving = torch.tensor(np.array(driving_video)[np.newaxis].astype(np.float32)).permute(0, 4, 1, 2, 3)
+        print(source.shape,driving.shape)
+        driving_initial = driving[:, :, 0].cuda()
+        kp_driving_initial = kp_detector(driving[:, :, 0].cuda())
+        driving_init_codedict = tdmm.encode(driving_initial)
+        # driving_init_verts, driving_init_transformed_verts, _ = tdmm.decode_flame(driving_init_codedict)
+        frarme_len=min(source.shape[2],driving.shape[2])
+        for frame_idx in tqdm(range(frarme_len)):
+            source_frame=source[:,:,frame_idx]
+            kp_source = kp_detector(source_frame)
+            source_codedict = tdmm.encode(source_frame)
+            source_verts, source_transformed_verts, _ = tdmm.decode_flame(source_codedict)
+            source_albedo = tdmm.extract_texture(source_frame, source_transformed_verts, with_eye=with_eye)
+            driving_frame = driving[:, :, frame_idx]
+            if not cpu:
+                driving_frame = driving_frame.cuda()
+
+            kp_driving = kp_detector(driving_frame)
+            driving_codedict = tdmm.encode(driving_frame)
+
+            # calculate relative 3D motion in the code space
+            if relative:
+                delta_shape = source_codedict['shape'] + driving_codedict['shape'] - driving_init_codedict['shape']
+                delta_exp = source_codedict['exp'] + driving_codedict['exp'] - driving_init_codedict['exp']
+                delta_pose = source_codedict['pose'] + driving_codedict['pose'] - driving_init_codedict['pose']
+            else:
+                delta_shape = source_codedict['shape']
+                delta_exp = driving_codedict['exp']
+                delta_pose = driving_codedict['pose']
+
+            delta_source_verts, _, _ = tdmm.flame(shape_params=delta_shape,
+                                           expression_params=delta_exp,
+                                           pose_params=delta_pose)
+
+            if relative:
+                delta_scale = source_codedict['cam'][:, 0:1] * driving_codedict['cam'][:, 0:1] / driving_init_codedict['cam'][:, 0:1]
+                delta_trans = source_codedict['cam'][:, 1:] + driving_codedict['cam'][:, 1:] - driving_init_codedict['cam'][:, 1:]
+            else:
+                delta_scale = driving_codedict['cam'][:, 0:1]
+                delta_trans = driving_codedict['cam'][:, 1:]
+
+            delta_cam = torch.cat([delta_scale, delta_trans], dim=1)
+            delta_source_transformed_verts = batch_orth_proj(delta_source_verts, delta_cam)
+            delta_source_transformed_verts[:, :, 1:] = - delta_source_transformed_verts[:, :, 1:]
+
+            render_ops = tdmm.render(source_transformed_verts, delta_source_transformed_verts, source_albedo)
+
+
+            out = generator(source_frame, kp_source=kp_source, kp_driving=kp_driving, render_ops=render_ops,
+                                        driving_features=driving_codedict)
+            del out['sparse_deformed']
+            out['kp_source'] = kp_source
+            out['kp_driving'] = kp_driving
+            kp_norm = normalize_kp(kp_source=kp_source, kp_driving=kp_driving,
+                                   kp_driving_initial=kp_driving_initial, use_relative_movement=relative,
+                                   use_relative_jacobian=relative, adapt_movement_scale=adapt_movement_scale)
+            out = generator(source_frame, kp_source=kp_source, kp_driving=kp_driving, render_ops=render_ops,
+                                        driving_features=driving_codedict)
+            predictions.append(np.transpose(out['prediction'].data.cpu().numpy(), [0, 2, 3, 1])[0])
+    return predictions
+
+
+
 def make_animation(source_image, driving_video, 
                    generator, kp_detector, tdmm, with_eye=False,
                    relative=True, adapt_movement_scale=True, cpu=False):
@@ -65,7 +150,6 @@ def make_animation(source_image, driving_video,
 
     with torch.no_grad():
         predictions = []
-        visualizations = []
         source = torch.tensor(source_image[np.newaxis].astype(np.float32)).permute(0, 3, 1, 2)
         if not cpu:
             source = source.cuda()
@@ -124,13 +208,10 @@ def make_animation(source_image, driving_video,
             del out['sparse_deformed']
             out['kp_source'] = kp_source
             out['kp_driving'] = kp_driving
-            # visualization = Visualizer(kp_size=5, draw_border=True, colormap='gist_rainbow').visualize(source=source,
-            #                                                                     driving=driving_frame, out=out)
-            # visualizations.append(visualization)
+
 
             predictions.append(np.transpose(out['prediction'].data.cpu().numpy(), [0, 2, 3, 1])[0])
-
-    return predictions#, visualizations
+    return predictions
 
 def find_best_frame(source, driving, cpu=False):
     import face_alignment
@@ -157,20 +238,12 @@ def find_best_frame(source, driving, cpu=False):
             frame_num = i
     return frame_num
 
-def laod_stylegan_avatar():
-    url = "https://thispersondoesnotexist.com/image"
-    r = requests.get(url, headers={'User-Agent': "My User Agent 1.0"}).content
-    image = np.frombuffer(r, np.uint8)
-    image = cv2.imdecode(image, cv2.IMREAD_COLOR)
-    image = resize(image, (256, 256))
-    image=cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
-    return image
-    
-
 def main(source_image_pth,driving_video_pth,result_video_pth,config,checkpoint,with_eye,relative,adapt_scale):
     if result_video_pth is None:
         result_video_pth='result.mp4'
-    source_image = imageio.imread(source_image_pth)
+    source_video=[]
+
+
     reader = imageio.get_reader(driving_video_pth)
     fps = reader.get_meta_data()['fps']
     driving_video = []
@@ -181,22 +254,53 @@ def main(source_image_pth,driving_video_pth,result_video_pth,config,checkpoint,w
         pass
     reader.close()
 
-    source_image = resize(source_image, (256, 256))[..., :3]
+    if source_image_pth.endswith('.mp4'):
+        reader=imageio.get_reader(source_image_pth)
+        try:
+            for i,im in enumerate(reader):
+                source_video.append(im)
+                if i==len(driving_video):
+                    break
+        except RuntimeError:
+            pass
+        reader.close()
+    else:
+        source_image = imageio.imread(source_image_pth)
+
+
+
+
+
+
+
+
+    if source_image_pth.endswith('.mp4'):
+        source_video = [resize(frame, (256, 256))[..., :3] for frame in source_video]
+    else:
+        source_image = resize(source_image, (256, 256))[..., :3]
     driving_video = [resize(frame, (256, 256))[..., :3] for frame in driving_video]
     generator, kp_detector, tdmm = load_checkpoints(config_path=config, checkpoint_path=checkpoint, cpu=False)
+    if source_image_pth.endswith('.mp4'):
+        predictions = make_video_animation(source_video, driving_video, 
+                                        generator, kp_detector, tdmm, with_eye=with_eye,
+                                        relative=relative, adapt_movement_scale=adapt_scale, cpu=False)
+    else:
+        print('source is image')
+        predictions = make_animation(source_image, driving_video, 
+                                        generator, kp_detector, tdmm, with_eye=with_eye,
+                                        relative=relative, adapt_movement_scale=adapt_scale, cpu=False)
+
+   
+    imageio.mimsave(result_video_pth, [img_as_ubyte(frame) for frame in predictions], fps=fps)
+    # clip=mp.VideoFileClip(driving_video_pth)
+    # clip.audio.write_audiofile("temp.wav")
+    # command=f"ffmpeg -y -i temp.mp4 -i temp.wav -vf fps={fps} -crf 0 -vcodec h264 -preset veryslow {result_video_pth} "
+    # print(command)
+    # subprocess.call(command,shell=True)
 
 
-    predictions = make_animation(source_image, driving_video, 
-                                    generator, kp_detector, tdmm, with_eye=with_eye,
-                                    relative=relative, adapt_movement_scale=adapt_scale, cpu=False)
 
-    # out_name = os.path.basename(opt.source_image_pth).split('.')[0] + "_" + os.path.basename(opt.driving_video_pth).split('.')[0]
-    imageio.mimsave('temp.mp4', [img_as_ubyte(frame) for frame in predictions], fps=fps)
-    clip=mp.VideoFileClip(driving_video_pth)
-    clip.audio.write_audiofile("temp.wav")
-    command=f"ffmpeg -y -i temp.mp4 -i temp.wav -vf fps={fps} -crf 0 -vcodec h264 -preset veryslow '{result_video_pth}' "
-    print(command)
-    subprocess.call(command,shell=True)
+
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -207,7 +311,7 @@ if __name__ == "__main__":
     parser.add_argument("--driving_video_pth", default='', help="path to driving video")
     parser.add_argument("--result_video_pth", default='result.mp4', help="path to output")
     parser.add_argument("--result_vis_video_pth", default='result_vis.mp4', help="path to output vis")
-    parser.add_argument('--use_random_face',action="store_true",)
+ 
     parser.add_argument("--with_eye", action="store_true", help="use eye part for extracting texture")
     parser.add_argument("--relative", dest="relative", action="store_true", help="use relative or absolute keypoint coordinates")
     parser.add_argument("--adapt_scale", dest="adapt_scale", action="store_true", help="adapt movement scale based on convex hull of keypoints")
@@ -225,48 +329,12 @@ if __name__ == "__main__":
     parser.set_defaults(adapt_scale=False)
 
     opt = parser.parse_args()
-    # if opt.use_random_face:
-    #     source_image=laod_stylegan_avatar()
-    #     source_image=cv2.cvtColor(source_image,cv2.COLOR_BGR2RGB)
-    # else:
-    source_image = imageio.imread(opt.source_image_pth)
-    reader = imageio.get_reader(opt.driving_video_pth)
-    fps = reader.get_meta_data()['fps']
-    driving_video = []
-    try:
-        for im in reader:
-            driving_video.append(im)
-    except RuntimeError:
-        pass
-    reader.close()
 
-    source_image = resize(source_image, (256, 256))[..., :3]
-    driving_video = [resize(frame, (256, 256))[..., :3] for frame in driving_video]
-    generator, kp_detector, tdmm = load_checkpoints(config_path=opt.config, checkpoint_path=opt.checkpoint, cpu=opt.cpu)
 
-    if opt.find_best_frame or opt.best_frame is not None:
-        i = opt.best_frame if opt.best_frame is not None else find_best_frame(source_image, driving_video, cpu=opt.cpu)
-        print ("Best frame: " + str(i))
-        driving_forward = driving_video[i:]
-        driving_backward = driving_video[:(i+1)][::-1]
-        predictions_forward, visualizations_forward = make_animation(source_image, driving_forward, 
-                                                                     generator, kp_detector, tdmm, with_eye=opt.with_eye,
-                                                                     relative=opt.relative, adapt_movement_scale=opt.adapt_scale, cpu=opt.cpu)
-        predictions_backward, visualizations_backward = make_animation(source_image, driving_backward, 
-                                                                       generator, kp_detector, tdmm, with_eye=opt.with_eye,
-                                                                       relative=opt.relative, adapt_movement_scale=opt.adapt_scale, cpu=opt.cpu)
-        predictions = predictions_backward[::-1] + predictions_forward[1:]
-        visualizations = visualizations_backward[::-1] + visualizations_forward[1:]
-    else:
-        predictions = make_animation(source_image, driving_video, 
-                                    generator, kp_detector, tdmm, with_eye=opt.with_eye,
-                                    relative=opt.relative, adapt_movement_scale=opt.adapt_scale, cpu=opt.cpu)
 
-    out_name = os.path.basename(opt.source_image_pth).split('.')[0] + "_" + os.path.basename(opt.driving_video_pth).split('.')[0]
-    imageio.mimsave('temp.mp4', [img_as_ubyte(frame) for frame in predictions], fps=fps)
-    # imageio.mimsave(opt.result_vis_video_pth, visualizations)
 
-    clip=mp.VideoFileClip(opt.driving_video_pth)
-    clip.audio.write_audiofile("temp.wav")
-    command=f"ffmpeg -y -i temp.mp4 -i temp.wav -vf fps={fps} -crf 0 -vcodec h264 -preset veryslow '{opt.result_video_pth}' "
-    subprocess.call(command,shell=True)
+
+    # main('test/input1.mp4','test/Jerry2-2021-10-01.mp4',None,'config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=False,adapt_scale=True)
+    main('source.mp4','driving.mp4',None,'config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True)
+
+
