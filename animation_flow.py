@@ -7,33 +7,10 @@ from animation_demo import create_video_animation
 from utils.face_restore_helper import create_face_helper
 from utils.mask import _cal_mouth_contour_mask
 from utils.blend import LaplacianBlending
+import face_alignment
 import subprocess
 from tqdm import trange
-def cross_point(line1,line2):#計算交點函數
-    x1=line1[0][0]#取四點座標
-    y1=line1[0][1]
-    x2=line1[1][0]
-    y2=line1[1][1]
-    
-    x3=line2[0][0]
-    y3=line2[0][1]
-    x4=line2[1][0]
-    y4=line2[1][1]
-    
-    k1=(y2-y1)*1.0/(x2-x1)#計算k1,由於點均爲整數，需要進行浮點數轉化
-    b1=y1*1.0-x1*k1*1.0#整型轉浮點型是關鍵
-    if (x4-x3)==0:#L2直線斜率不存在操作
-        k2=None
-        b2=0
-    else:
-        k2=(y4-y3)*1.0/(x4-x3)#斜率存在操作
-        b2=y3*1.0-x3*k2*1.0
-    if k2==None:
-        x=x3
-    else:
-        x=(b2-b1)*1.0/(k1-k2)
-    y=k1*x*1.0+b1*1.0
-    return [int(x),int(y)]
+
 def concat_video(dir):
     video1 = cv2.VideoCapture(f'{dir}/source.mp4')
     video2 = cv2.VideoCapture(f'{dir}/driving.mp4')
@@ -77,12 +54,12 @@ def check(dir):
     result_video.release()
 
 def extract_landmark(video_path, out_path):
-    import face_alignment
-    import pickle
+
     fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D)
     video = cv2.VideoCapture(video_path)
     all_landmarks = []
-    while video.isOpened():
+    frame_count=int(video.get(7))
+    for _ in  trange(frame_count):
         ret, frame = video.read()
         if not ret:
             break
@@ -179,7 +156,7 @@ def paste_origin_video(source_origin_path,safa_video_path,temp_dir,landmark_path
 
     
 
-def inference_animation_dataflow(source_origin_path,driving_origin_path,temp_dir,result_path,model_path,config_path=None,add_audo=False):
+def make_animation_dataflow(source_origin_path,driving_origin_path,temp_dir,result_path,model_path,config_path=None,add_audo=False):
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
     if config_path is None:
@@ -207,9 +184,9 @@ def inference_animation_dataflow(source_origin_path,driving_origin_path,temp_dir
         command=f"ffmpeg -y -i {temp_paste_video_path}  -vf fps={fps} -crf 0 -vcodec h264  {result_path} " #-preset veryslow
         subprocess.call(command,shell=True)
 if __name__ == '__main__':
-    inference_animation_dataflow('new_test/source_all.mp4','new_test/driving_all.mp4','temp','finish.mp4','ckpt/final_3DV.tar')
-    inference_animation_dataflow('finish.mp4','finish_1/driving_all.mp4','finish_1/temp2','finish_t.mp4','ckpt/final_3DV.tar',add_audo=True)
-    inference_animation_dataflow('finish.mp4','finish_2/driving_all.mp4','finish_2/temp','finish2.mp4','ckpt/final_3DV.tar',add_audo=True)
+    # inference_animation_dataflow('new_test/source_all.mp4','new_test/driving_all.mp4','temp','finish.mp4','ckpt/final_3DV.tar')
+    make_animation_dataflow('finish.mp4','finish_1/driving_all.mp4','finish_1/temp2','finish_t.mp4','ckpt/final_3DV.tar',add_audo=True)
+    # make_animation_dataflow('finish.mp4','finish_2/driving_all.mp4','finish_2/temp','finish2.mp4','ckpt/final_3DV.tar',add_audo=True)
 
 
 
