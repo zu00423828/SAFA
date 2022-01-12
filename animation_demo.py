@@ -126,10 +126,11 @@ def make_video_animation(source_video, driving_video,
             del out['sparse_deformed']
             out['kp_source'] = kp_source
             out['kp_driving'] = kp_driving
-            kp_norm = normalize_kp(kp_source=kp_source, kp_driving=kp_driving,
-                                   kp_driving_initial=kp_driving_initial, use_relative_movement=relative,
-                                   use_relative_jacobian=relative, adapt_movement_scale=adapt_movement_scale)
-            out = generator(source_frame, kp_source=kp_source, kp_driving=kp_driving, render_ops=render_ops,
+            # kp_norm = normalize_kp(kp_source=kp_source, kp_driving=kp_driving,
+            #                        kp_driving_initial=kp_driving_initial, use_relative_movement=relative,
+            #                        use_relative_jacobian=relative, adapt_movement_scale=adapt_movement_scale)
+            out = generator(source_frame, kp_source=kp_source, kp_driving=kp_driving
+                                        , render_ops=render_ops,
                                         driving_features=driving_codedict)
             predictions.append(np.transpose(out['prediction'].data.cpu().numpy(), [0, 2, 3, 1])[0])
     return predictions
@@ -238,15 +239,13 @@ def find_best_frame(source, driving, cpu=False):
             frame_num = i
     return frame_num
 
-def main(source_image_pth,driving_video_pth,result_video_pth,config,checkpoint,with_eye,relative,adapt_scale):
+def create_video_animation(source_video_pth,driving_video_pth,result_video_pth,config,checkpoint,with_eye,relative,adapt_scale):
     if result_video_pth is None:
         result_video_pth='result.mp4'
     source_video=[]
-
-
+    driving_video = []
     reader = imageio.get_reader(driving_video_pth)
     fps = reader.get_meta_data()['fps']
-    driving_video = []
     try:
         for im in reader:
             driving_video.append(im)
@@ -254,41 +253,27 @@ def main(source_image_pth,driving_video_pth,result_video_pth,config,checkpoint,w
         pass
     reader.close()
 
-    if source_image_pth.endswith('.mp4'):
-        reader=imageio.get_reader(source_image_pth)
-        try:
-            for i,im in enumerate(reader):
-                source_video.append(im)
-                if i==len(driving_video):
-                    break
-        except RuntimeError:
-            pass
-        reader.close()
-    else:
-        source_image = imageio.imread(source_image_pth)
+    reader=imageio.get_reader(source_video_pth)
+    try:
+        for i,im in enumerate(reader):
+            source_video.append(im)
+            if i==(len(driving_video)-1):
+                break
+    except RuntimeError:
+        pass
+    reader.close()
 
-
-
-
-
-
-
-
-    if source_image_pth.endswith('.mp4'):
-        source_video = [resize(frame, (256, 256))[..., :3] for frame in source_video]
-    else:
-        source_image = resize(source_image, (256, 256))[..., :3]
+    source_video = [resize(frame, (256, 256))[..., :3] for frame in source_video]
     driving_video = [resize(frame, (256, 256))[..., :3] for frame in driving_video]
     generator, kp_detector, tdmm = load_checkpoints(config_path=config, checkpoint_path=checkpoint, cpu=False)
-    if source_image_pth.endswith('.mp4'):
-        predictions = make_video_animation(source_video, driving_video, 
-                                        generator, kp_detector, tdmm, with_eye=with_eye,
-                                        relative=relative, adapt_movement_scale=adapt_scale, cpu=False)
-    else:
-        print('source is image')
-        predictions = make_animation(source_image, driving_video, 
-                                        generator, kp_detector, tdmm, with_eye=with_eye,
-                                        relative=relative, adapt_movement_scale=adapt_scale, cpu=False)
+    predictions = make_video_animation(source_video, driving_video, 
+                                    generator, kp_detector, tdmm, with_eye=with_eye,
+                                    relative=relative, adapt_movement_scale=adapt_scale, cpu=False)
+    # else:
+    #     print('source is image')
+    #     predictions = make_animation(source_image, driving_video, 
+    #                                     generator, kp_detector, tdmm, with_eye=with_eye,
+    #                                     relative=relative, adapt_movement_scale=adapt_scale, cpu=False)
 
    
     imageio.mimsave(result_video_pth, [img_as_ubyte(frame) for frame in predictions], fps=fps)
@@ -298,9 +283,25 @@ def main(source_image_pth,driving_video_pth,result_video_pth,config,checkpoint,w
     # print(command)
     # subprocess.call(command,shell=True)
 
+def create_image_animation(source_image_pth,driving_video_pth,result_video_pth,config,checkpoint,with_eye,relative,adapt_scale):
 
-
-
+    source_image=imageio.imread(source_image_pth)
+    driving_video = []
+    reader = imageio.get_reader(driving_video_pth)
+    fps = reader.get_meta_data()['fps']
+    try:
+        for im in reader:
+            driving_video.append(im)
+    except RuntimeError:
+        pass
+    reader.close()
+    source_image = resize(source_image, (256, 256))[..., :3]
+    driving_video = [resize(frame, (256, 256))[..., :3] for frame in driving_video]
+    generator, kp_detector, tdmm = load_checkpoints(config_path=config, checkpoint_path=checkpoint, cpu=False)
+    predictions = make_animation(source_image, driving_video, 
+                                    generator, kp_detector, tdmm, with_eye=with_eye,
+                                    relative=relative, adapt_movement_scale=adapt_scale, cpu=False)
+    imageio.mimsave(result_video_pth, [img_as_ubyte(frame) for frame in predictions], fps=fps)
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -331,10 +332,6 @@ if __name__ == "__main__":
     opt = parser.parse_args()
 
 
-
-
-
-    # main('test/input1.mp4','test/Jerry2-2021-10-01.mp4',None,'config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=False,adapt_scale=True)
-    main('source.mp4','driving.mp4',None,'config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True)
+    create_video_animation('source.mp4','driving.mp4',None,'config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=False,adapt_scale=True)
 
 
