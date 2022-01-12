@@ -12,7 +12,7 @@ from modules.FLAME import FLAME
 
 import pickle
 
-flame_model_dir = './modules'
+flame_model_dir = os.path.split(os.path.realpath(__file__))[0] #'./modules'
 flame_config = {
     'model':{
         'n_shape': 100,

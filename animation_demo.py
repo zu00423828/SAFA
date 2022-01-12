@@ -74,7 +74,6 @@ def make_video_animation(source_video, driving_video,
 
 
         driving = torch.tensor(np.array(driving_video)[np.newaxis].astype(np.float32)).permute(0, 4, 1, 2, 3)
-        print(source.shape,driving.shape)
         driving_initial = driving[:, :, 0].cuda()
         kp_driving_initial = kp_detector(driving[:, :, 0].cuda())
         driving_init_codedict = tdmm.encode(driving_initial)
@@ -257,8 +256,8 @@ def create_video_animation(source_video_pth,driving_video_pth,result_video_pth,c
     try:
         for i,im in enumerate(reader):
             source_video.append(im)
-            if i==(len(driving_video)-1):
-                break
+            # if i==(len(driving_video)-1):
+            #     break
     except RuntimeError:
         pass
     reader.close()
@@ -269,19 +268,8 @@ def create_video_animation(source_video_pth,driving_video_pth,result_video_pth,c
     predictions = make_video_animation(source_video, driving_video, 
                                     generator, kp_detector, tdmm, with_eye=with_eye,
                                     relative=relative, adapt_movement_scale=adapt_scale, cpu=False)
-    # else:
-    #     print('source is image')
-    #     predictions = make_animation(source_image, driving_video, 
-    #                                     generator, kp_detector, tdmm, with_eye=with_eye,
-    #                                     relative=relative, adapt_movement_scale=adapt_scale, cpu=False)
-
-   
     imageio.mimsave(result_video_pth, [img_as_ubyte(frame) for frame in predictions], fps=fps)
-    # clip=mp.VideoFileClip(driving_video_pth)
-    # clip.audio.write_audiofile("temp.wav")
-    # command=f"ffmpeg -y -i temp.mp4 -i temp.wav -vf fps={fps} -crf 0 -vcodec h264 -preset veryslow {result_video_pth} "
-    # print(command)
-    # subprocess.call(command,shell=True)
+    return result_video_pth
 
 def create_image_animation(source_image_pth,driving_video_pth,result_video_pth,config,checkpoint,with_eye,relative,adapt_scale):
 
