@@ -104,8 +104,8 @@ def face_preprocess(input_video,landmark_file,save_name):
         *'MP4V'), 30.0, (256,256))
     matrix_list=[]
     new_landmark_list=[]
-    print(len(video_landmarks),video.get(7))
-    for i in trange(len(video_landmarks)):
+    data_len=min(len(video_landmarks),int(video.get(7)))
+    for i in trange(data_len):
         _,frame=video.read()
         frame_landmark=video_landmarks[i]
         face_helper.clean_all()
@@ -182,6 +182,8 @@ def paste_origin_video(source_origin_path,safa_video_path,temp_dir,landmark_path
 def inference_animation_dataflow(source_origin_path,driving_origin_path,temp_dir,result_path,model_path,config_path=None,add_audo=False):
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
+    if config_path is None:
+        config_path=f"{os.path.split(os.path.realpath(__file__))[0]}/config/end2end.yaml"
     print('extract_landmark: source')
     landmark_path=extract_landmark(source_origin_path,f'{temp_dir}/source.pkl')
     # landmark_path='temp/source.pkl'
@@ -192,11 +194,7 @@ def inference_animation_dataflow(source_origin_path,driving_origin_path,temp_dir
     print('generate safa_result_video')
     safa_video_path=create_video_animation(source_video_path,driving_video_path,f'{temp_dir}/temp.mp4',config_path,model_path,with_eye=True,relative=False,adapt_scale=True)
     print('paste safa_result_video on the origin source video ')
-    if config_path is None:
-        config_path=f"{os.path.split(os.path.realpath(__file__))[0]}/config/end2end.yaml"
-    print(config_path)
     temp_paste_video_path=paste_origin_video(source_origin_path,safa_video_path,temp_dir,landmark_path,source_data_path)
-    print(temp_paste_video_path)
     video=cv2.VideoCapture(temp_paste_video_path)
     fps=video.get(5)
     video.release()
@@ -209,9 +207,9 @@ def inference_animation_dataflow(source_origin_path,driving_origin_path,temp_dir
         command=f"ffmpeg -y -i {temp_paste_video_path}  -vf fps={fps} -crf 0 -vcodec h264  {result_path} " #-preset veryslow
         subprocess.call(command,shell=True)
 if __name__ == '__main__':
-    # inference_animation_dataflow('new_test/source_all.mp4','new_test/driving_all.mp4','temp','finish.mp4','config/end2end.yaml','ckpt/final_3DV.tar')
-    inference_animation_dataflow('finish.mp4','finish_1/driving_all.mp4','finish_1/temp','finish1.mp4','ckpt/final_3DV.tar',config_path='config/end2end.yaml',add_audo=True)
-    inference_animation_dataflow('finish.mp4','finish_2/driving_all.mp4','finish_2/temp','finish2.mp4','ckpt/final_3DV.tar',config_path='config/end2end.yaml',add_audo=True)
+    inference_animation_dataflow('new_test/source_all.mp4','new_test/driving_all.mp4','temp','finish.mp4','ckpt/final_3DV.tar')
+    inference_animation_dataflow('finish.mp4','finish_1/driving_all.mp4','finish_1/temp2','finish_t.mp4','ckpt/final_3DV.tar',add_audo=True)
+    inference_animation_dataflow('finish.mp4','finish_2/driving_all.mp4','finish_2/temp','finish2.mp4','ckpt/final_3DV.tar',add_audo=True)
 
 
 
