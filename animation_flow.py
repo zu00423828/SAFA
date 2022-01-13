@@ -157,6 +157,16 @@ def paste_origin_video(source_origin_path,safa_video_path,temp_dir,landmark_path
     
 
 def make_animation_dataflow(source_origin_path,driving_origin_path,temp_dir,result_path,model_path,config_path=None,add_audo=False):
+    '''
+    參數  
+    source_origin_path：被操控的原影片路徑 \n
+    driving_origin_path：操控的原影片路徑 \n
+    temp_dir：暫存用的資料夾 \n
+    result_path：操控後的影片路徑 \n
+    model_path：SAFA模型的路徑 \n
+    config_path=None：SAFA模型的config預設是None，可以直接省略 \n
+    add_audo=False：是否要增加聲音，預設FALSE \n
+    '''
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
     if config_path is None:
