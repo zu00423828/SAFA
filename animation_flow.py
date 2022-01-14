@@ -122,8 +122,10 @@ def paste_origin_video(source_origin_path,safa_video_path,temp_dir,landmark_path
     full_video=cv2.VideoCapture(source_origin_path)
     crop_video=cv2.VideoCapture(safa_video_path)
     out_video_path=f'{temp_dir}/paste_temp.mp4'
+    h=int(full_video.get(4))
+    w=int(full_video.get(3))
     out_video = cv2.VideoWriter(out_video_path, cv2.VideoWriter_fourcc(
-        *'XVID'), 30.0, (1920,1080))
+        *'XVID'), 30.0, (w,h))
     lb=create_lb(3)
     with open(landmark_path,'rb' ) as f:
         source_landmark=pickle.load(f)
@@ -138,8 +140,8 @@ def paste_origin_video(source_origin_path,safa_video_path,temp_dir,landmark_path
         crop_frame=cv2.resize(crop_frame,(512,512))
         inv_matrix=cv2.invertAffineTransform(soucre_matrix[i])
         new_frame = cv2.warpAffine(
-                crop_frame, inv_matrix,(1920,1080), borderMode=cv2.BORDER_CONSTANT, borderValue=(135, 133, 132)) 
-        mask=_cal_mouth_contour_mask(source_landmark[i],1080,1920,None,0.1)
+                crop_frame, inv_matrix,(w,h), borderMode=cv2.BORDER_CONSTANT, borderValue=(135, 133, 132)) 
+        mask=_cal_mouth_contour_mask(source_landmark[i],h,w,None,0.1)
         mask_tesor=torch.tensor(mask,dtype=torch.float32).permute(2,0,1).unsqueeze(0)
         y_tensor=torch.tensor(full_frame/255,dtype=torch.float32).permute(2,0,1).unsqueeze(0)
         x_tensor=torch.tensor(new_frame/255,dtype=torch.float32).permute(2,0,1).unsqueeze(0)
