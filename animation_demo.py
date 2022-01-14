@@ -1,6 +1,5 @@
 import matplotlib
 matplotlib.use('Agg')
-import os, sys
 import yaml
 from argparse import ArgumentParser
 from tqdm import tqdm
@@ -9,20 +8,32 @@ import numpy as np
 from skimage.transform import resize
 from skimage import img_as_ubyte
 import torch
-import torch.nn.functional as F
-
 from modules.generator import OcclusionAwareGenerator
 from modules.keypoint_detector import KPDetector
 from modules.tdmm_estimator import TDMMEstimator
-from modules.flame_config import cfg as flame_cfg
-
 from animate import normalize_kp
 from scipy.spatial import ConvexHull
 import moviepy.editor as mp
 import subprocess
-import face_alignment
 import cv2
 import pickle
+import requests
+from gfpgan import GFPGANer
+def laod_stylegan_avatar():
+    url = "https://thispersondoesnotexist.com/image"
+    r = requests.get(url, headers={'User-Agent': "My User Agent 1.0"}).content
+    image = np.frombuffer(r, np.uint8)
+    image = cv2.imdecode(image, cv2.IMREAD_COLOR)
+    image = resize(image, (256, 256))
+    print(image.dtype)
+    cv2.imwrite('random_face.png',image*255)
+    return image[...,[2,1,0]]
+
+
+def img_color_resize(img):
+    img = resize(img, (256, 256))
+    return img
+    # return img[..., :3]
 
 def load_checkpoints(config_path, checkpoint_path, cpu=False):
 
@@ -65,7 +76,7 @@ def make_video_animation(source_video, driving_video,
         shape = X_trans.shape
         Xn = (camera[:, :, 0:1] * X_trans)
         return Xn
-
+    
     with torch.no_grad():
         predictions = []
         source = torch.tensor(np.array(source_video)[np.newaxis].astype(np.float32)).permute(0, 4, 1, 2,3)
@@ -271,9 +282,11 @@ def create_video_animation(source_video_pth,driving_video_pth,result_video_pth,c
     imageio.mimsave(result_video_pth, [img_as_ubyte(frame) for frame in predictions], fps=fps)
     return result_video_pth
 
-def create_image_animation(source_image_pth,driving_video_pth,result_video_pth,config,checkpoint,with_eye,relative,adapt_scale):
-
-    source_image=imageio.imread(source_image_pth)
+def create_image_animation(source_image_pth,driving_video_pth,result_video_pth,config,checkpoint,with_eye,relative,adapt_scale,use_restorer):
+    if source_image_pth is None:
+        source_image=laod_stylegan_avatar()
+    else:
+        source_image=imageio.imread(source_image_pth)
     driving_video = []
     reader = imageio.get_reader(driving_video_pth)
     fps = reader.get_meta_data()['fps']
@@ -289,11 +302,27 @@ def create_image_animation(source_image_pth,driving_video_pth,result_video_pth,c
     predictions = make_animation(source_image, driving_video, 
                                     generator, kp_detector, tdmm, with_eye=with_eye,
                                     relative=relative, adapt_movement_scale=adapt_scale, cpu=False)
-    imageio.mimsave(result_video_pth, [img_as_ubyte(frame) for frame in predictions], fps=fps)
-
+    if use_restorer:
+        restorer = GFPGANer(
+        model_path='ckpt/GFPGANCleanv1-NoCE-C2.pth',
+        upscale=2,
+        arch='clean',
+        channel_multiplier=2,
+        bg_upsampler=None)
+        enhance_imgs=[]
+        for frame in tqdm(predictions):
+            _,_,enhance_img=restorer.enhance(img_as_ubyte(frame), has_aligned=False, only_center_face=False, paste_back=True)
+            enhance_imgs.append(enhance_img)
+        imageio.mimsave('temp.mp4', [frame for frame in enhance_imgs], fps=fps)
+    else:
+        imageio.mimsave('temp.mp4', [img_as_ubyte(frame) for frame in predictions], fps=fps)
+    command=f"ffmpeg -y -i {driving_video_pth} temp.wav "
+    subprocess.call(command,shell=True)
+    command=f"ffmpeg -y -i temp.mp4 -i temp.wav -vf fps={fps} -crf 0 -vcodec h264  {result_video_pth} " #-preset veryslow
+    subprocess.call(command,shell=True)
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--config", required=True, help="path to config")
+    parser.add_argument("--config", help="path to config")
     parser.add_argument("--checkpoint", default=None, help="path to checkpoint to restore")
 
     parser.add_argument("--source_image_pth", default='', help="path to source image")
@@ -320,6 +349,6 @@ if __name__ == "__main__":
     opt = parser.parse_args()
 
 
-    create_video_animation('source.mp4','driving.mp4',None,'config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=False,adapt_scale=True)
-
+    # create_video_animation('source.mp4','driving.mp4',None,'config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=False,adapt_scale=True)
+    create_image_animation('EP007-02.png','test_paste/old/jerry-crop-face_A.mp4','image_result.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=True)
 
