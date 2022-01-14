@@ -350,5 +350,10 @@ if __name__ == "__main__":
 
 
     # create_video_animation('source.mp4','driving.mp4',None,'config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=False,adapt_scale=True)
-    create_image_animation('EP007-02.png','test_paste/old/jerry-crop-face_A.mp4','image_result.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=True)
+    # create_image_animation('EP007-02.png','01_14/1.mp4','01_14/out/1_f.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False)
+    # create_image_animation('EP007-02.png','01_14/2.mp4','01_14/out/2_f.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False)
+    # create_image_animation('EP007-02.png','01_14/3.mp4','01_14/out/3_f.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False)
+    # create_image_animation('EP007-02.png','01_14/4.mp4','01_14/out/4_f.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False)
 
+    create_image_animation('EP007-02.png','01_14/0114_test-gen.mp4','01_14/out/out_f.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False)
+    create_image_animation('EP007-02.png','01_14/0114_test-gen.mp4','01_14/out/out_f.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=True)
