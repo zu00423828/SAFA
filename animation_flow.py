@@ -122,6 +122,8 @@ def paste_origin_video(source_origin_path,safa_video_path,temp_dir,landmark_path
     full_video=cv2.VideoCapture(source_origin_path)
     crop_video=cv2.VideoCapture(safa_video_path)
     out_video_path=f'{temp_dir}/paste_temp.mp4'
+    h= int(full_video.get(4))
+    w= int(full_video.get(3))
     out_video = cv2.VideoWriter(out_video_path, cv2.VideoWriter_fourcc(
         *'XVID'), 30.0, (1920,1080))
     lb=create_lb(3)
@@ -195,7 +197,7 @@ def make_animation_dataflow(source_origin_path,driving_origin_path,temp_dir,resu
         subprocess.call(command,shell=True)
 if __name__ == '__main__':
     # inference_animation_dataflow('new_test/source_all.mp4','new_test/driving_all.mp4','temp','finish.mp4','ckpt/final_3DV.tar')
-    make_animation_dataflow('finish.mp4','finish_1/driving_all.mp4','finish_1/temp2','finish_t.mp4','ckpt/final_3DV.tar',add_audo=True)
+    make_animation_dataflow('finish_1/finish.mp4','finish_1/driving_all.mp4','finish_1/temp2','finish_t.mp4','ckpt/final_3DV.tar',add_audo=True)
     # make_animation_dataflow('finish.mp4','finish_2/driving_all.mp4','finish_2/temp','finish2.mp4','ckpt/final_3DV.tar',add_audo=True)
 
 
