@@ -1,5 +1,4 @@
 import pickle
-from tkinter import LEFT
 import cv2
 import numpy as np
 import os
