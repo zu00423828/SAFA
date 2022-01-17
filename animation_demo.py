@@ -1,3 +1,4 @@
+from pickle import FALSE
 import matplotlib
 matplotlib.use('Agg')
 import yaml
@@ -13,10 +14,8 @@ from modules.keypoint_detector import KPDetector
 from modules.tdmm_estimator import TDMMEstimator
 from animate import normalize_kp
 from scipy.spatial import ConvexHull
-import moviepy.editor as mp
 import subprocess
 import cv2
-import pickle
 import requests
 from gfpgan import GFPGANer
 def laod_stylegan_avatar():
@@ -240,7 +239,7 @@ def find_best_frame(source, driving, cpu=False):
     kp_source = normalize_kp(kp_source)
     norm  = float('inf')
     frame_num = 0
-    for i, image in tqdm(enumerate(driving)):
+    for i, image in enumerate(tqdm(driving)):
         kp_driving = fa.get_landmarks(255 * image)[0]
         kp_driving = normalize_kp(kp_driving)
         new_norm = (np.abs(kp_source - kp_driving) ** 2).sum()
@@ -282,7 +281,7 @@ def create_video_animation(source_video_pth,driving_video_pth,result_video_pth,c
     imageio.mimsave(result_video_pth, [img_as_ubyte(frame) for frame in predictions], fps=fps)
     return result_video_pth
 
-def create_image_animation(source_image_pth,driving_video_pth,result_video_pth,config,checkpoint,with_eye,relative,adapt_scale,use_restorer):
+def create_image_animation(source_image_pth,driving_video_pth,result_video_pth,config,checkpoint,with_eye,relative,adapt_scale,use_best_frame,use_restorer):
     if source_image_pth is None:
         source_image=laod_stylegan_avatar()
     else:
@@ -299,9 +298,22 @@ def create_image_animation(source_image_pth,driving_video_pth,result_video_pth,c
     source_image = resize(source_image, (256, 256))[..., :3]
     driving_video = [resize(frame, (256, 256))[..., :3] for frame in driving_video]
     generator, kp_detector, tdmm = load_checkpoints(config_path=config, checkpoint_path=checkpoint, cpu=False)
-    predictions = make_animation(source_image, driving_video, 
-                                    generator, kp_detector, tdmm, with_eye=with_eye,
-                                    relative=relative, adapt_movement_scale=adapt_scale, cpu=False)
+    if use_best_frame:
+        i =  find_best_frame(source_image, driving_video, cpu=False)
+        print ("Best frame: " + str(i))
+        driving_forward = driving_video[i:]
+        driving_backward = driving_video[:(i+1)][::-1]
+        predictions_forward = make_animation(source_image, driving_forward, 
+                                                                     generator, kp_detector, tdmm, with_eye=with_eye,
+                                                                     relative=relative, adapt_movement_scale=adapt_scale, cpu=False)
+        predictions_backward = make_animation(source_image, driving_backward, 
+                                                                       generator, kp_detector, tdmm, with_eye=with_eye,
+                                                                       relative=relative, adapt_movement_scale=adapt_scale, cpu=False)
+        predictions = predictions_backward[::-1] + predictions_forward[1:]
+    else:
+        predictions = make_animation(source_image, driving_video, 
+                                        generator, kp_detector, tdmm, with_eye=with_eye,
+                                        relative=relative, adapt_movement_scale=adapt_scale, cpu=False)
     if use_restorer:
         restorer = GFPGANer(
         model_path='ckpt/GFPGANCleanv1-NoCE-C2.pth',
@@ -350,10 +362,10 @@ if __name__ == "__main__":
 
 
     # create_video_animation('source.mp4','driving.mp4',None,'config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=False,adapt_scale=True)
-    create_image_animation('EP007-02.png','01_17/1.mp4','01_17/out/1_f.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False)
-    create_image_animation('EP007-02.png','01_17/2.mp4','01_17/out/2_f.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False)
-    create_image_animation('EP007-02.png','01_17/3.mp4','01_17/out/3_f.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False)
-    create_image_animation('EP007-02.png','01_17/4.mp4','01_17/out/4_f.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False)
+    create_image_animation('EP010-08.jpg','01_17/crop1.mp4','01_17/out5/1_f.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False,use_best_frame=False)
+    create_image_animation('EP010-08.jpg','01_17/crop2.mp4','01_17/out5/2_f.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False,use_best_frame=False)
+    create_image_animation('EP010-08.jpg','01_17/crop3.mp4','01_17/out5/3_f.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False,use_best_frame=False)
+    create_image_animation('EP010-08.jpg','01_17/crop4.mp4','01_17/out5/4_f.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False,use_best_frame=False)
 
     # create_image_animation('EP007-02.png','01_14/0114_test-gen.mp4','01_14/out/out_f.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False)
     # create_image_animation('EP007-02.png','01_14/0114_test-gen.mp4','01_14/out/out_f.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=True)
