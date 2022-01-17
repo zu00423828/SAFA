@@ -1,4 +1,3 @@
-from pickle import FALSE
 import matplotlib
 matplotlib.use('Agg')
 import yaml
