@@ -83,21 +83,24 @@ def face_preprocess(input_video,landmark_file,save_name):
     for i in trange(data_len):
         _,frame=video.read()
         frame_landmark=video_landmarks[i]
-        face_helper.clean_all()
-        face_helper.read_image(frame)
-        face_helper.get_face_landmarks_3(frame_landmark, only_keep_largest=True, eye_dist_threshold=5)
-        face_helper.align_warp_face()
+        if frame_landmark is None:
+            matrix_list.append(None)
+            new_landmark_list.append(None)
+            large_face=np.zeros((256,256,3),np.uint8)
+        else:
+            face_helper.clean_all()
+            face_helper.read_image(frame)
+            face_helper.get_face_landmarks_3(frame_landmark, only_keep_largest=True, eye_dist_threshold=5)
+            face_helper.align_warp_face()
 
-        assert len(face_helper.cropped_faces) != 0
-        
+            assert len(face_helper.cropped_faces) != 0
+            
 
-        affine_matrix = face_helper.affine_matrices[0]
-        large_face = face_helper.cropped_faces[0]
-        # face = face_helper.cropped_small_faces[0]
-        affine_landmarks = (np.matmul(affine_matrix[:, :2], frame_landmark.T) + affine_matrix[:, 2:]).T
-        matrix_list.append(affine_matrix)
-        new_landmark_list.append(affine_landmarks)
-        # cv2.imwrite(f'frame/{i}.png',large_face)
+            affine_matrix = face_helper.affine_matrices[0]
+            large_face = face_helper.cropped_faces[0]
+            affine_landmarks = (np.matmul(affine_matrix[:, :2], frame_landmark.T) + affine_matrix[:, 2:]).T
+            matrix_list.append(affine_matrix)
+            new_landmark_list.append(affine_landmarks)
         out.write(cv2.resize(large_face,(256,256)))
     out_data_path=f'{save_name}_data.pkl'
     with open(out_data_path,'wb') as f:
@@ -155,22 +158,27 @@ def paste_origin_video(source_origin_path,safa_video_path,temp_dir,landmark_path
     for i in  trange(frame_count):
         _,full_frame=full_video.read()
         _,crop_frame=crop_video.read()
-        crop_frame=cv2.resize(crop_frame,(512,512))
-        inv_matrix=cv2.invertAffineTransform(soucre_matrix[i])
-        new_frame = cv2.warpAffine(
-                crop_frame, inv_matrix,(w,h), borderMode=cv2.BORDER_CONSTANT, borderValue=(135, 133, 132)) 
-        mask=_cal_mouth_contour_mask(source_landmark[i],h,w,None,0.1)
 
-        x1,x2,y1,y2=quantize_position(0,w,0,h,4)
-        if x2>w or y2>h:
-            mask= cv2.copyMakeBorder(mask,0,y2-h,0,x2-w,cv2.BODER_CONTSTANT,value=[255,255,255])
-            full_frame=cv2.copyMakeBorder(full_frame,0,y2-h,0,x2-w,cv2.BODER_CONTSTANT,value=[255,255,255])
-            new_frame=cv2.copyMakeBorder(new_frame,0,y2-h,0,x2-w,cv2.BODER_CONTSTANT,value=[255,255,255])
-        mask_tesor=torch.tensor(mask,dtype=torch.float32).permute(2,0,1).unsqueeze(0)
-        y_tensor=torch.tensor(full_frame/255,dtype=torch.float32).permute(2,0,1).unsqueeze(0)
-        x_tensor=torch.tensor(new_frame/255,dtype=torch.float32).permute(2,0,1).unsqueeze(0)
-        out=lb(y_tensor,x_tensor,mask_tesor)
-        full_out=(out[0][:,:h,:w].permute(1,2,0)*255).numpy().astype(np.uint8)
+        if source_landmark[i] is None:
+            full_out= full_frame.copy()
+        else:
+            crop_frame=cv2.resize(crop_frame,(512,512))
+            inv_matrix=cv2.invertAffineTransform(soucre_matrix[i])
+            new_frame = cv2.warpAffine(
+                    crop_frame, inv_matrix,(w,h), borderMode=cv2.BORDER_CONSTANT, borderValue=(135, 133, 132)) 
+            mask=_cal_mouth_contour_mask(source_landmark[i],h,w,None,0.1)
+
+            x1,x2,y1,y2=quantize_position(0,w,0,h,4)
+            if x2>w or y2>h:
+                mask= cv2.copyMakeBorder(mask,0,y2-h,0,x2-w,cv2.BORDER_CONSTANT,value=[255])
+                mask=mask.reshape(y2,x2,1)
+                full_frame=cv2.copyMakeBorder(full_frame,0,y2-h,0,x2-w,cv2.BORDER_CONSTANT,value=[255,255,255])
+                new_frame=cv2.copyMakeBorder(new_frame,0,y2-h,0,x2-w,cv2.BORDER_CONSTANT,value=[255,255,255])
+            mask_tesor=torch.tensor(mask,dtype=torch.float32).permute(2,0,1).unsqueeze(0)
+            y_tensor=torch.tensor(full_frame/255,dtype=torch.float32).permute(2,0,1).unsqueeze(0)
+            x_tensor=torch.tensor(new_frame/255,dtype=torch.float32).permute(2,0,1).unsqueeze(0)
+            out=lb(y_tensor,x_tensor,mask_tesor)
+            full_out=(out[0][:,:h,:w].permute(1,2,0)*255).numpy().astype(np.uint8)
         out_video.write(full_out)
     out_video.release()
     # out_video2.release()
@@ -199,7 +207,6 @@ def make_animation_dataflow(source_origin_path,driving_origin_path,temp_dir,resu
         config_path=f"{os.path.split(os.path.realpath(__file__))[0]}/config/end2end.yaml"
     print('extract_landmark: source')
     landmark_path=extract_landmark(source_origin_path,f'{temp_dir}/source.pkl')
-    # landmark_path='temp/source.pkl'
     print('crop_video: source')
     source_video_path,source_data_path=face_preprocess(source_origin_path,landmark_path,f'{temp_dir}/source')
     print('crop_video: driving')
