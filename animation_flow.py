@@ -166,14 +166,12 @@ def paste_origin_video(source_origin_path,safa_video_path,temp_dir,landmark_path
             inv_matrix=cv2.invertAffineTransform(soucre_matrix[i])
             new_frame = cv2.warpAffine(
                     crop_frame, inv_matrix,(w,h), borderMode=cv2.BORDER_CONSTANT, borderValue=(135, 133, 132)) 
-            mask=_cal_mouth_contour_mask(source_landmark[i],h,w,None,0.1)
 
             x1,x2,y1,y2=quantize_position(0,w,0,h,4)
+            mask=_cal_mouth_contour_mask(source_landmark[i],y2,x2,None,0.1)
             if x2>w or y2>h:
-                mask= cv2.copyMakeBorder(mask,0,y2-h,0,x2-w,cv2.BORDER_CONSTANT,value=[255])
-                mask=mask.reshape(y2,x2,1)
-                full_frame=cv2.copyMakeBorder(full_frame,0,y2-h,0,x2-w,cv2.BORDER_CONSTANT,value=[255,255,255])
-                new_frame=cv2.copyMakeBorder(new_frame,0,y2-h,0,x2-w,cv2.BORDER_CONSTANT,value=[255,255,255])
+                full_frame=cv2.copyMakeBorder(full_frame,0,max(0,y2-h),0,max(0,x2-w),cv2.BORDER_CONSTANT,value=[255,255,255])
+                new_frame=cv2.copyMakeBorder(new_frame,0,max(0,y2-h),0,max(0,x2-w),cv2.BORDER_CONSTANT,value=[255,255,255])
             mask_tesor=torch.tensor(mask,dtype=torch.float32).permute(2,0,1).unsqueeze(0)
             y_tensor=torch.tensor(full_frame/255,dtype=torch.float32).permute(2,0,1).unsqueeze(0)
             x_tensor=torch.tensor(new_frame/255,dtype=torch.float32).permute(2,0,1).unsqueeze(0)
@@ -228,7 +226,7 @@ def make_animation_dataflow(source_origin_path,driving_origin_path,temp_dir,resu
         subprocess.call(command,shell=True)
 if __name__ == '__main__':
     # inference_animation_dataflow('new_test/source_all.mp4','new_test/driving_all.mp4','temp','finish.mp4','ckpt/final_3DV.tar')
-    make_animation_dataflow('finish_1/finish.mp4','finish_1/driving_all.mp4','finish_1/temp2','finish_t.mp4','ckpt/final_3DV.tar',add_audo=True)
+    make_animation_dataflow('test1/1.mp4','test1/1.mp4','test1/temp','finish_t.mp4','ckpt/final_3DV.tar',add_audo=True)
     # make_animation_dataflow('finish.mp4','finish_2/driving_all.mp4','finish_2/temp','finish2.mp4','ckpt/final_3DV.tar',add_audo=True)
 
 

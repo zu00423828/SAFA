@@ -361,10 +361,17 @@ if __name__ == "__main__":
 
 
     # create_video_animation('source.mp4','driving.mp4',None,'config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=False,adapt_scale=True)
-    create_image_animation('EP010-08.jpg','01_17/crop1.mp4','01_17/out5/1_f.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False,use_best_frame=False)
-    create_image_animation('EP010-08.jpg','01_17/crop2.mp4','01_17/out5/2_f.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False,use_best_frame=False)
-    create_image_animation('EP010-08.jpg','01_17/crop3.mp4','01_17/out5/3_f.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False,use_best_frame=False)
-    create_image_animation('EP010-08.jpg','01_17/crop4.mp4','01_17/out5/4_f.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False,use_best_frame=False)
+    data_root='/home/yuan/hdd/safa_test'
+    create_image_animation(f'{data_root}/img/EP007-02.png',f'{data_root}/01_18/crop.mp4',f'{data_root}/01_18/out/1_1.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=False,relative=True,adapt_scale=True,use_restorer=False,use_best_frame=False)
+    # create_image_animation(f'{data_root}/img/EP007-02.png',f'{data_root}/01_18/2.mp4',f'{data_root}/01_18/out/2_1.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False,use_best_frame=False)
+    # create_image_animation(f'{data_root}/img/EP007-02.png',f'{data_root}/01_18/3.mp4',f'{data_root}/01_18/out/3_1.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False,use_best_frame=False)
+    # create_image_animation(f'{data_root}/img/EP007-02.png',f'{data_root}01_18/4.mp4',f'{data_root}/01_18/out/4_1.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False,use_best_frame=False)
+
+
+    create_image_animation(f'{data_root}/img/EP010-08.jpg',f'{data_root}/01_18/crop.mp4',f'{data_root}/01_18/out/1_2.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=False,relative=True,adapt_scale=True,use_restorer=False,use_best_frame=False)
+    # create_image_animation('01_17/EP010-08.jpg','01_17/2.mp4','01_17/out5/2_2.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False,use_best_frame=False)
+    # create_image_animation('01_17/EP010-08.jpg','01_17/3.mp4','01_17/out5/3_2.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False,use_best_frame=False)
+    # create_image_animation('01_17/EP010-08.jpg','01_17/4.mp4','01_17/out5/4_2.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False,use_best_frame=False)
 
     # create_image_animation('EP007-02.png','01_14/0114_test-gen.mp4','01_14/out/out_f.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=False)
     # create_image_animation('EP007-02.png','01_14/0114_test-gen.mp4','01_14/out/out_f.mp4','config/end2end.yaml','ckpt/final_3DV.tar',with_eye=True,relative=True,adapt_scale=True,use_restorer=True)
