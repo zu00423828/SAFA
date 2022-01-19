@@ -324,13 +324,14 @@ def create_image_animation(source_image_pth,driving_video_pth,result_video_pth,c
         for frame in tqdm(predictions):
             _,_,enhance_img=restorer.enhance(img_as_ubyte(frame), has_aligned=False, only_center_face=False, paste_back=True)
             enhance_imgs.append(enhance_img)
-        imageio.mimsave('temp.mp4', [frame for frame in enhance_imgs], fps=fps)
+        imageio.mimsave(result_video_pth, [frame for frame in enhance_imgs], fps=fps)
     else:
-        imageio.mimsave('temp.mp4', [img_as_ubyte(frame) for frame in predictions], fps=fps)
-    command=f"ffmpeg -y -i {driving_video_pth} temp.wav "
-    subprocess.call(command,shell=True)
-    command=f"ffmpeg -y -i temp.mp4 -i temp.wav -vf fps={fps} -crf 16 -vcodec h264  {result_video_pth} " #-preset veryslow
-    subprocess.call(command,shell=True)
+        imageio.mimsave(result_video_pth, [img_as_ubyte(frame) for frame in predictions], fps=fps)
+    return result_video_pth
+    # command=f"ffmpeg -y -i {driving_video_pth} temp.wav "
+    # subprocess.call(command,shell=True)
+    # command=f"ffmpeg -y -i temp.mp4 -i temp.wav -vf fps={fps} -crf 16 -vcodec h264  {result_video_pth} " #-preset veryslow
+    # subprocess.call(command,shell=True)
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--config", help="path to config")

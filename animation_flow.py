@@ -1,3 +1,4 @@
+from logging import root
 import pickle
 import cv2
 import numpy as np
@@ -11,10 +12,10 @@ import face_alignment
 import subprocess
 from tqdm import trange
 from utils.crop_video import process_video
+from gfpgan import GFPGANer
 def concat_video(left,right,out_path):
     video1 = cv2.VideoCapture(left)
     video2 = cv2.VideoCapture(right)
-    video3=cv2.VideoCapture()
     out = cv2.VideoWriter(
         out_path, cv2.VideoWriter_fourcc(*'XVID'), 30.0, (512, 256))
     while video1.isOpened():
@@ -29,7 +30,8 @@ def concat_video(left,right,out_path):
     video1.release()
     video2.release()
     out.release()
-
+    # command=f'ffmpeg -i /tmp/temp_concat.mp4 -i /tmp/temp.wav  {out_path}'
+    # subprocess.call(command,shell=True)
 def check(dir):
     source_video=cv2.VideoCapture(f'{dir}/source.mp4')
     result_video=cv2.VideoCapture(f'{dir}/driving.mp4')
@@ -185,7 +187,48 @@ def paste_origin_video(source_origin_path,safa_video_path,temp_dir,landmark_path
     crop_video.release()
     return out_video_path
 
+def video_gfpgan_process(origin_video_path,landmark_path,use_gfp=True):
+    restorer = GFPGANer(
+        model_path='ckpt/GFPGANCleanv1-NoCE-C2.pth',
+        upscale=2,
+        arch='clean',
+        channel_multiplier=2,
+        bg_upsampler=None)
 
+    full_video=cv2.VideoCapture(origin_video_path)
+    out_video_path='/tmp/paste_temp.mp4'
+    h= int(full_video.get(4))
+    w= int(full_video.get(3))
+    out_video = cv2.VideoWriter(out_video_path, cv2.VideoWriter_fourcc(
+        *'XVID'), 30.0, (w,h))
+    lb=create_lb(4)
+    with open(landmark_path,'rb' ) as f:
+        source_landmark=pickle.load(f)
+    frame_count= int(full_video.get(7))#min(len(source_affine_landmark),len(drive_data_affine_landmark))
+    for i in  trange(frame_count):
+        _,full_frame=full_video.read()
+        if source_landmark[i] is None:
+            full_out= full_frame.copy()
+        else:
+            enhance_img=full_frame.copy()
+            if use_gfp:
+                _,_,enhance_img=restorer.enhance(full_frame, has_aligned=False, only_center_face=False, paste_back=True)
+                enhance_img=cv2.resize(enhance_img,(256,256))
+            x1,x2,y1,y2=quantize_position(0,w,0,h,4)
+            mask=_cal_mouth_contour_mask(source_landmark[i],y2,x2,None,0.1)
+            if x2>w or y2>h:
+                full_frame=cv2.copyMakeBorder(full_frame,0,max(0,y2-h),0,max(0,x2-w),cv2.BORDER_CONSTANT,value=[255,255,255])
+                enhance_img=cv2.copyMakeBorder(enhance_img,0,max(0,y2-h),0,max(0,x2-w),cv2.BORDER_CONSTANT,value=[255,255,255])
+            mask_tesor=torch.tensor(mask,dtype=torch.float32).permute(2,0,1).unsqueeze(0)
+            y_tensor=torch.tensor(full_frame/255,dtype=torch.float32).permute(2,0,1).unsqueeze(0)
+            x_tensor=torch.tensor(enhance_img/255,dtype=torch.float32).permute(2,0,1).unsqueeze(0)
+            out=lb(y_tensor,x_tensor,mask_tesor)
+            full_out=(out[0][:,:h,:w].permute(1,2,0)*255).numpy().astype(np.uint8)
+        out_video.write(full_out)
+    out_video.release()
+    # out_video2.release()
+    full_video.release()
+    return out_video_path
 
     
 
@@ -226,18 +269,52 @@ def make_animation_dataflow(source_origin_path,driving_origin_path,temp_dir,resu
         command=f"ffmpeg -y -i {temp_paste_video_path}  -vf fps={fps} -crf 0 -vcodec h264  {result_path} " #-preset veryslow
         subprocess.call(command,shell=True)
 
-def make_image_animation_dataflow(source_path,driving_origin_path,result_path,model_path,config_path=None,add_audo=False):
+def make_image_animation_dataflow(source_path,driving_origin_path,result_path,model_path,use_crop=False,use_gfp=True,config_path=None):
     if config_path is None:
         config_path=f"{os.path.split(os.path.realpath(__file__))[0]}/config/end2end.yaml"
-    process_video(source_path,result_path)
-    # create_image_animation(source_path,driving_origin_path,result_path,config_path,model_path,with_eye=True,relative=True,adapt_scale=True,use_restorer=False,use_best_frame=False)
+    if use_crop :
+        driving_video_path=process_video(driving_origin_path,'/tmp/driving.mp4')
+    else:
+        driving_video_path=driving_origin_path
+    print('create animation')
+    safa_video=create_image_animation(source_path,driving_video_path,'/tmp/temp.mp4',config_path,model_path,with_eye=True,relative=True,adapt_scale=True,use_restorer=False,use_best_frame=False)
+    print('extract landmark')
+    ldmk_path=extract_landmark(safa_video,'/tmp/ldmk.pkl')
+    print('gfp process')
+    paste_video_path=video_gfpgan_process(safa_video,ldmk_path,use_gfp)
+
+    command=f"ffmpeg -y -i {driving_video_path} /tmp/temp.wav "
+    subprocess.call(command,shell=True)
+    command=f"ffmpeg -y -i {paste_video_path} -i /tmp/temp.wav  -crf 16 -vcodec h264  {result_path} " #-preset veryslow
+    subprocess.call(command,shell=True)
 if __name__ == '__main__':
     # inference_animation_dataflow('new_test/source_all.mp4','new_test/driving_all.mp4','temp','finish.mp4','ckpt/final_3DV.tar')
     # make_animation_dataflow('test1/1.mp4','test1/1.mp4','test1/temp','finish_t.mp4','ckpt/final_3DV.tar',add_audo=True)
     # make_animation_dataflow('finish.mp4','finish_2/driving_all.mp4','finish_2/temp','finish2.mp4','ckpt/final_3DV.tar',add_audo=True)
     # concat_video('/home/yuan/repo/my_safa/01_18/1.mp4','/home/yuan/repo/my_safa/01_18/out/1_1.mp4','concat.mp4')
-    make_image_animation_dataflow()
 
+
+    # root='/home/yuan/hdd/safa_test/01_18_2'
+    # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/1.mp4',f'{root}/1_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=False)
+    # concat_video(f'{root}/1_gfpgan.mp4',f'{root}/out/1.mp4','concat2.mp4')
+
+    # root='/home/yuan/hdd/safa_test/01_19'
+    # make_image_animation_dataflow(f'{root}/EP007-02new.jpg',f'{root}/1.mp4',f'{root}/out/1_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=True)
+    # make_image_animation_dataflow(f'{root}/EP007-02new.jpg',f'{root}/2.mp4',f'{root}/out/2_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=True)
+    # make_image_animation_dataflow(f'{root}/EP007-02new.jpg',f'{root}/3.mp4',f'{root}/out/3_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=True)
+    # make_image_animation_dataflow(f'{root}/EP007-02new.jpg',f'{root}/4.mp4',f'{root}/out/4_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=True)
+    
+    # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/1.mp4',f'{root}/out1/1_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=True)
+    # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/2.mp4',f'{root}/out1/2_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=True)
+    # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/3.mp4',f'{root}/out1/3_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=True)
+    # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/4.mp4',f'{root}/out1/4_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=True)
+    
+    root='01_19'
+    make_image_animation_dataflow(f'{root}/EP007-02.png',f'{root}/3.mp4',f'{root}/out/女1_3.mp4','ckpt/final_3DV.tar',use_crop=True,use_gfp=False)
+    make_image_animation_dataflow(f'{root}/EP007-02.png',f'{root}/4.mp4',f'{root}/out/女1_4.mp4','ckpt/final_3DV.tar',use_crop=True,use_gfp=False)
+    make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/3.mp4',f'{root}/out/女2_3.mp4','ckpt/final_3DV.tar',use_crop=True,use_gfp=False)
+    make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/4.mp4',f'{root}/out/女2_4.mp4','ckpt/final_3DV.tar',use_crop=True,use_gfp=False)
+    
 
 
 # ffmpeg -i test/input1.mp4  -filter:v "crop=476:476:733:151, scale=256:256" crop.mp4

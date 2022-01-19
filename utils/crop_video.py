@@ -1,3 +1,4 @@
+import subprocess
 import face_alignment
 # import skimage.io
 # import numpy
@@ -45,7 +46,7 @@ def join(tube_bbox, bbox):
     return (xA, yA, xB, yB)
 
 
-def compute_bbox(start, end, fps, tube_bbox, frame_shape, inp, image_shape, increase_area=0.1):
+def compute_bbox(start, end, fps, tube_bbox, frame_shape, inp, image_shape,output, increase_area=0.1):
     left, top, right, bot = tube_bbox
     width = right - left
     height = bot - top
@@ -69,19 +70,19 @@ def compute_bbox(start, end, fps, tube_bbox, frame_shape, inp, image_shape, incr
     scale = f'{image_shape[0]}:{image_shape[1]}'
 
     # return f'ffmpeg -i {inp} -ss {start} -t {time} -filter:v "crop={w}:{h}:{left}:{top}, scale={scale}" crop.mp4'
-    return f'ffmpeg -i {inp}  -filter:v "crop={w}:{h}:{left}:{top}, scale={scale}" crop.mp4'
+    return f'ffmpeg  -y -i {inp}  -filter:v "crop={w}:{h}:{left}:{top}, scale={scale}" {output}'
 
 
-def compute_bbox_trajectories(trajectories, fps, frame_shape, inp,image_shape,min_frames,increase):
+def compute_bbox_trajectories(trajectories, fps, frame_shape, inp,image_shape,min_frames,increase,output):
     commands = []
     for i, (bbox, tube_bbox, start, end) in enumerate(trajectories):
         if (end - start) > min_frames:
-            command = compute_bbox(start, end, fps, tube_bbox, frame_shape, inp=inp, image_shape=image_shape, increase_area=increase)
+            command = compute_bbox(start, end, fps, tube_bbox, frame_shape, inp=inp, image_shape=image_shape, increase_area=increase,output=output)
             commands.append(command)
     return commands
 
 
-def process_video(inp,output,image_shape=(255,255),increase=0.1,iou_with_initial=0.25,min_frames=150,device='cuda'):
+def process_video(inp,output,image_shape=(256,256),increase=0.1,iou_with_initial=0.25,min_frames=150,device='cuda'):
     fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, flip_input=False, device=device)
     video = imageio.get_reader(inp)
 
@@ -107,7 +108,7 @@ def process_video(inp,output,image_shape=(255,255),increase=0.1,iou_with_initial
                 else:
                     not_valid_trajectories.append(trajectory)
             # print("frame",i,"not trajectories",not_valid_trajectories)
-            commands += compute_bbox_trajectories(not_valid_trajectories, fps, frame_shape,inp,image_shape,min_frames,increase)# return none
+            commands += compute_bbox_trajectories(not_valid_trajectories, fps, frame_shape,inp,image_shape,min_frames,increase,output)# return none
             trajectories = valid_trajectories
 
             ## Assign bbox to trajectories, create new trajectories
@@ -132,9 +133,12 @@ def process_video(inp,output,image_shape=(255,255),increase=0.1,iou_with_initial
     except IndexError as e:
         raise (e)
 
-    commands += compute_bbox_trajectories(trajectories, fps, frame_shape, inp,image_shape,min_frames,increase)
-    print(len(command))
-    return commands
+    commands += compute_bbox_trajectories(trajectories, fps, frame_shape, inp,image_shape,min_frames,increase,output)
+    print(commands[0])
+    command=commands[0]
+    subprocess.call(command,shell=True)
+    return output
+    # return commands
 
 
 if __name__ == "__main__":
