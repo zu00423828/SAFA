@@ -3,17 +3,18 @@ import cv2
 import numpy as np
 import os
 import torch
-from animation_demo import create_video_animation
+from animation_demo import create_video_animation,create_image_animation
 from utils.face_restore_helper import create_face_helper
 from utils.mask import _cal_mouth_contour_mask
 from utils.blend import LaplacianBlending
 import face_alignment
 import subprocess
 from tqdm import trange
-
+from utils.crop_video import process_video
 def concat_video(left,right,out_path):
     video1 = cv2.VideoCapture(left)
     video2 = cv2.VideoCapture(right)
+    video3=cv2.VideoCapture()
     out = cv2.VideoWriter(
         out_path, cv2.VideoWriter_fourcc(*'XVID'), 30.0, (512, 256))
     while video1.isOpened():
@@ -224,12 +225,18 @@ def make_animation_dataflow(source_origin_path,driving_origin_path,temp_dir,resu
     else:
         command=f"ffmpeg -y -i {temp_paste_video_path}  -vf fps={fps} -crf 0 -vcodec h264  {result_path} " #-preset veryslow
         subprocess.call(command,shell=True)
+
+def make_image_animation_dataflow(source_path,driving_origin_path,result_path,model_path,config_path=None,add_audo=False):
+    if config_path is None:
+        config_path=f"{os.path.split(os.path.realpath(__file__))[0]}/config/end2end.yaml"
+    process_video(source_path,result_path)
+    # create_image_animation(source_path,driving_origin_path,result_path,config_path,model_path,with_eye=True,relative=True,adapt_scale=True,use_restorer=False,use_best_frame=False)
 if __name__ == '__main__':
     # inference_animation_dataflow('new_test/source_all.mp4','new_test/driving_all.mp4','temp','finish.mp4','ckpt/final_3DV.tar')
-    make_animation_dataflow('test1/1.mp4','test1/1.mp4','test1/temp','finish_t.mp4','ckpt/final_3DV.tar',add_audo=True)
+    # make_animation_dataflow('test1/1.mp4','test1/1.mp4','test1/temp','finish_t.mp4','ckpt/final_3DV.tar',add_audo=True)
     # make_animation_dataflow('finish.mp4','finish_2/driving_all.mp4','finish_2/temp','finish2.mp4','ckpt/final_3DV.tar',add_audo=True)
-
-
+    # concat_video('/home/yuan/repo/my_safa/01_18/1.mp4','/home/yuan/repo/my_safa/01_18/out/1_1.mp4','concat.mp4')
+    make_image_animation_dataflow()
 
 
 
