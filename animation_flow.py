@@ -269,9 +269,8 @@ def make_animation_dataflow(source_origin_path,driving_origin_path,temp_dir,resu
         command=f"ffmpeg -y -i {temp_paste_video_path}  -vf fps={fps} -crf 0 -vcodec h264  {result_path} " #-preset veryslow
         subprocess.call(command,shell=True)
 
-def make_image_animation_dataflow(source_path,driving_origin_path,result_path,model_path,use_crop=False,use_gfp=True,config_path=None):
-    if config_path is None:
-        config_path=f"{os.path.split(os.path.realpath(__file__))[0]}/config/end2end.yaml"
+def make_image_animation_dataflow(source_path,driving_origin_path,result_path,model_path,use_crop=False,use_gfp=True,):
+    config_path=f"{os.path.split(os.path.realpath(__file__))[0]}/config/end2end.yaml"
     if use_crop :
         driving_video_path=process_video(driving_origin_path,'/tmp/driving.mp4')
     else:
@@ -298,23 +297,27 @@ if __name__ == '__main__':
     # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/1.mp4',f'{root}/1_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=False)
     # concat_video(f'{root}/1_gfpgan.mp4',f'{root}/out/1.mp4','concat2.mp4')
 
-    # root='/home/yuan/hdd/safa_test/01_19'
-    # make_image_animation_dataflow(f'{root}/EP007-02new.jpg',f'{root}/1.mp4',f'{root}/out/1_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=True)
-    # make_image_animation_dataflow(f'{root}/EP007-02new.jpg',f'{root}/2.mp4',f'{root}/out/2_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=True)
-    # make_image_animation_dataflow(f'{root}/EP007-02new.jpg',f'{root}/3.mp4',f'{root}/out/3_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=True)
-    # make_image_animation_dataflow(f'{root}/EP007-02new.jpg',f'{root}/4.mp4',f'{root}/out/4_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=True)
+    root='/home/yuan/hdd/safa_test/01_20'
+    make_image_animation_dataflow(f'{root}/0144.png',f'{root}/1.mp4',f'{root}/out/1_3.mp4','ckpt/final_3DV.tar',use_crop=False)
+    # make_image_animation_dataflow(f'{root}/EP010-18.png',f'{root}/2.mp4',f'{root}/out/2_3.mp4','ckpt/final_3DV.tar',use_crop=False)
+    # make_image_animation_dataflow(f'{root}/EP010-18.png',f'{root}/3.mp4',f'{root}/out/3_3.mp4','ckpt/final_3DV.tar',use_crop=False)
+    # make_image_animation_dataflow(f'{root}/EP010-18.png',f'{root}/4.mp4',f'{root}/out/4_3.mp4','ckpt/final_3DV.tar',use_crop=False)
     
-    # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/1.mp4',f'{root}/out1/1_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=True)
-    # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/2.mp4',f'{root}/out1/2_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=True)
-    # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/3.mp4',f'{root}/out1/3_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=True)
-    # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/4.mp4',f'{root}/out1/4_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=True)
+    # root='/home/yuan/hdd/safa_test/01_18_1/woman'
+    # make_image_animation_dataflow(f'{root}/EP007-02new.jpg',f'{root}/1.mp4',f'{root}/out1/1_1.mp4','ckpt/final_3DV.tar',use_crop=False)
+    # make_image_animation_dataflow(f'{root}/EP007-02new.jpg',f'{root}/2.mp4',f'{root}/out1/2_1.mp4','ckpt/final_3DV.tar',use_crop=False)
+    # make_image_animation_dataflow(f'{root}/EP007-02new.jpg',f'{root}/3.mp4',f'{root}/out1/3_1.mp4','ckpt/final_3DV.tar',use_crop=False)
+    # make_image_animation_dataflow(f'{root}/EP007-02new.jpg',f'{root}/4.mp4',f'{root}/out1/4_1.mp4','ckpt/final_3DV.tar',use_crop=False)
     
-    root='01_19'
-    make_image_animation_dataflow(f'{root}/EP007-02.png',f'{root}/3.mp4',f'{root}/out/女1_3.mp4','ckpt/final_3DV.tar',use_crop=True,use_gfp=False)
-    make_image_animation_dataflow(f'{root}/EP007-02.png',f'{root}/4.mp4',f'{root}/out/女1_4.mp4','ckpt/final_3DV.tar',use_crop=True,use_gfp=False)
-    make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/3.mp4',f'{root}/out/女2_3.mp4','ckpt/final_3DV.tar',use_crop=True,use_gfp=False)
-    make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/4.mp4',f'{root}/out/女2_4.mp4','ckpt/final_3DV.tar',use_crop=True,use_gfp=False)
+ 
+    # root='/home/yuan/hdd/safa_test/01_18_1/woman2'
+    # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/1.mp4',f'{root}/out1/1_2.mp4','ckpt/final_3DV.tar',use_crop=False)
+    # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/2.mp4',f'{root}/out1/2_2.mp4','ckpt/final_3DV.tar',use_crop=False)
+    # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/3.mp4',f'{root}/out1/3_2.mp4','ckpt/final_3DV.tar',use_crop=False)
+    # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/4.mp4',f'{root}/out1/4_2.mp4','ckpt/final_3DV.tar',use_crop=False)
     
+ 
+ 
 
 
 # ffmpeg -i test/input1.mp4  -filter:v "crop=476:476:733:151, scale=256:256" crop.mp4
