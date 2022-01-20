@@ -187,13 +187,14 @@ def paste_origin_video(source_origin_path,safa_video_path,temp_dir,landmark_path
     crop_video.release()
     return out_video_path
 
-def video_gfpgan_process(origin_video_path,landmark_path,use_gfp=True):
-    restorer = GFPGANer(
-        model_path='ckpt/GFPGANCleanv1-NoCE-C2.pth',
-        upscale=2,
-        arch='clean',
-        channel_multiplier=2,
-        bg_upsampler=None)
+def video_gfpgan_process(origin_video_path,landmark_path,use_gfp=True,model_dir='ckpt'):
+    if use_gfp:
+        restorer = GFPGANer(
+            model_path=f'{model_dir}/GFPGANCleanv1-NoCE-C2.pth',
+            upscale=2,
+            arch='clean',
+            channel_multiplier=2,
+            bg_upsampler=None)
 
     full_video=cv2.VideoCapture(origin_video_path)
     out_video_path='/tmp/paste_temp.mp4'
@@ -269,22 +270,23 @@ def make_animation_dataflow(source_origin_path,driving_origin_path,temp_dir,resu
         command=f"ffmpeg -y -i {temp_paste_video_path}  -vf fps={fps} -crf 0 -vcodec h264  {result_path} " #-preset veryslow
         subprocess.call(command,shell=True)
 
-def make_image_animation_dataflow(source_path,driving_origin_path,result_path,model_path,use_crop=False,use_gfp=True,):
+def make_image_animation_dataflow(source_path,driving_origin_path,result_path,model_dir,use_crop=False,use_gfp=True,):
     config_path=f"{os.path.split(os.path.realpath(__file__))[0]}/config/end2end.yaml"
     if use_crop :
         driving_video_path=process_video(driving_origin_path,'/tmp/driving.mp4')
     else:
         driving_video_path=driving_origin_path
     print('create animation')
-    safa_video=create_image_animation(source_path,driving_video_path,'/tmp/temp.mp4',config_path,model_path,with_eye=True,relative=True,adapt_scale=True,use_restorer=False,use_best_frame=False)
+    safa_model_path=f'{model_dir}/final_3DV.tar'
+    safa_video=create_image_animation(source_path,driving_video_path,'/tmp/temp.mp4',config_path,safa_model_path,with_eye=True,relative=True,adapt_scale=True,use_restorer=False,use_best_frame=False)
     print('extract landmark')
     ldmk_path=extract_landmark(safa_video,'/tmp/ldmk.pkl')
     print('gfp process')
-    paste_video_path=video_gfpgan_process(safa_video,ldmk_path,use_gfp)
+    paste_video_path=video_gfpgan_process(safa_video,ldmk_path,use_gfp,model_dir=model_dir)
 
     command=f"ffmpeg -y -i {driving_video_path} /tmp/temp.wav "
     subprocess.call(command,shell=True)
-    command=f"ffmpeg -y -i {paste_video_path} -i /tmp/temp.wav  -crf 16 -vcodec h264  {result_path} " #-preset veryslow
+    command=f"ffmpeg -y -i {paste_video_path} -i /tmp/temp.wav  -crf  {crf} -vcodec h264  {result_path} " #-preset veryslow
     subprocess.call(command,shell=True)
 if __name__ == '__main__':
     # inference_animation_dataflow('new_test/source_all.mp4','new_test/driving_all.mp4','temp','finish.mp4','ckpt/final_3DV.tar')
@@ -298,7 +300,11 @@ if __name__ == '__main__':
     # concat_video(f'{root}/1_gfpgan.mp4',f'{root}/out/1.mp4','concat2.mp4')
 
     root='/home/yuan/hdd/safa_test/01_20'
-    make_image_animation_dataflow(f'{root}/0144.png',f'{root}/1.mp4',f'{root}/out/1_3.mp4','ckpt/final_3DV.tar',use_crop=False)
+    make_image_animation_dataflow(f'{root}/0212.png',f'{root}/1.mp4',f'{root}/out/1.mp4','ckpt/',use_crop=True)
+    make_image_animation_dataflow(f'{root}/0212.png',f'{root}/2.mp4',f'{root}/out/2.mp4','ckpt/',use_crop=True)
+    make_image_animation_dataflow(f'{root}/0212.png',f'{root}/3.mp4',f'{root}/out/3.mp4','ckpt/',use_crop=True)
+    make_image_animation_dataflow(f'{root}/0212.png',f'{root}/4.mp4',f'{root}/out/4.mp4','ckpt/',use_crop=True)
+    make_image_animation_dataflow(f'{root}/0212.png',f'{root}/5.mp4',f'{root}/out/5.mp4','ckpt/',use_crop=True)
     # make_image_animation_dataflow(f'{root}/EP010-18.png',f'{root}/2.mp4',f'{root}/out/2_3.mp4','ckpt/final_3DV.tar',use_crop=False)
     # make_image_animation_dataflow(f'{root}/EP010-18.png',f'{root}/3.mp4',f'{root}/out/3_3.mp4','ckpt/final_3DV.tar',use_crop=False)
     # make_image_animation_dataflow(f'{root}/EP010-18.png',f'{root}/4.mp4',f'{root}/out/4_3.mp4','ckpt/final_3DV.tar',use_crop=False)
