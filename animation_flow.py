@@ -270,7 +270,7 @@ def make_animation_dataflow(source_origin_path,driving_origin_path,temp_dir,resu
         command=f"ffmpeg -y -i {temp_paste_video_path}  -vf fps={fps} -crf 0 -vcodec h264  {result_path} " #-preset veryslow
         subprocess.call(command,shell=True)
 
-def make_image_animation_dataflow(source_path,driving_origin_path,result_path,model_dir,use_crop=False,use_gfp=True,):
+def make_image_animation_dataflow(source_path,driving_origin_path,result_path,model_dir,use_crop=False,crf=0,use_gfp=True,):
     config_path=f"{os.path.split(os.path.realpath(__file__))[0]}/config/end2end.yaml"
     if use_crop :
         driving_video_path=process_video(driving_origin_path,'/tmp/driving.mp4')
