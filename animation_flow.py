@@ -278,7 +278,7 @@ def make_image_animation_dataflow(source_path,driving_origin_path,result_path,mo
         driving_video_path=driving_origin_path
     print('create animation')
     safa_model_path=f'{model_dir}/final_3DV.tar'
-    safa_video=create_image_animation(source_path,driving_video_path,'/tmp/temp.mp4',config_path,safa_model_path,with_eye=True,relative=True,adapt_scale=True,use_restorer=False,use_best_frame=False)
+    safa_video=create_image_animation(source_path,driving_video_path,'/tmp/temp.mp4',config_path,safa_model_path,with_eye=True,relative=True,adapt_scale=True,use_best_frame=False)
     print('extract landmark')
     ldmk_path=extract_landmark(safa_video,'/tmp/ldmk.pkl')
     print('gfp process')
@@ -299,12 +299,12 @@ if __name__ == '__main__':
     # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/1.mp4',f'{root}/1_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=False)
     # concat_video(f'{root}/1_gfpgan.mp4',f'{root}/out/1.mp4','concat2.mp4')
 
-    root='/home/yuan/hdd/safa_test/01_20'
-    make_image_animation_dataflow(f'{root}/0212.png',f'{root}/1.mp4',f'{root}/out/1.mp4','ckpt/',use_crop=True)
+    root='/home/yuan/hdd/safa_test/01_24'
     make_image_animation_dataflow(f'{root}/0212.png',f'{root}/2.mp4',f'{root}/out/2.mp4','ckpt/',use_crop=True)
-    make_image_animation_dataflow(f'{root}/0212.png',f'{root}/3.mp4',f'{root}/out/3.mp4','ckpt/',use_crop=True)
-    make_image_animation_dataflow(f'{root}/0212.png',f'{root}/4.mp4',f'{root}/out/4.mp4','ckpt/',use_crop=True)
-    make_image_animation_dataflow(f'{root}/0212.png',f'{root}/5.mp4',f'{root}/out/5.mp4','ckpt/',use_crop=True)
+    # make_image_animation_dataflow(f'{root}/0212.png',f'{root}/2.mp4',f'{root}/out/2.mp4','ckpt/',use_crop=True)
+    # make_image_animation_dataflow(f'{root}/0212.png',f'{root}/3.mp4',f'{root}/out/3.mp4','ckpt/',use_crop=True)
+    # make_image_animation_dataflow(f'{root}/0212.png',f'{root}/4.mp4',f'{root}/out/4.mp4','ckpt/',use_crop=True)
+    # make_image_animation_dataflow(f'{root}/0212.png',f'{root}/5.mp4',f'{root}/out/5.mp4','ckpt/',use_crop=True)
     # make_image_animation_dataflow(f'{root}/EP010-18.png',f'{root}/2.mp4',f'{root}/out/2_3.mp4','ckpt/final_3DV.tar',use_crop=False)
     # make_image_animation_dataflow(f'{root}/EP010-18.png',f'{root}/3.mp4',f'{root}/out/3_3.mp4','ckpt/final_3DV.tar',use_crop=False)
     # make_image_animation_dataflow(f'{root}/EP010-18.png',f'{root}/4.mp4',f'{root}/out/4_3.mp4','ckpt/final_3DV.tar',use_crop=False)

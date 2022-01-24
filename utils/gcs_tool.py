@@ -3,7 +3,7 @@ from google.cloud import storage
 import os
 from datetime import timedelta
 storage_client = storage.Client()
-bucket_name = "lip-data"
+bucket_name = "test-lip-data" if os.environ.get('GCS_BUCKET_NAME') is None else os.environ.get('GCS_BUCKET_NAME')
 bucket = storage_client.bucket(bucket_name)
 def upload_to_gcs(path,gcs_path):
     filename=os.path.basename(path)
@@ -12,7 +12,7 @@ def upload_to_gcs(path,gcs_path):
 def get_blob_list():
     # bucket = storage_client.get_bucket(bucket_name)
     for blob in bucket.list_blobs():
-        print(blob.name,blob.generate_signed_url(expiration = timedelta(3)))
+        print(blob.name)#,blob.generate_signed_url(expiration = timedelta(3)))
 def delete_blobs():
     for blob in bucket.list_blobs():
         bucket.delete_blob(blob.name)

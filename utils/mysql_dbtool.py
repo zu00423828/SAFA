@@ -78,7 +78,8 @@ class DBtools:
             id INTEGER PRIMARY KEY AUTO_INCREMENT,
             `client_id` INTEGER NOT NULL,
             filename VARCHAR(200) NOT NULL,
-            content LONGBLOB NOT NULL,
+            display_image_content LONGBLOB NOT NULL,
+            generate_image_content LONGBLOB NOT NULL,
             md5 VARCHAR(32) NOT NULL,
             create_datetime DATETIME NOT NULL,
             size_mb FLOAT NOT NULL,
@@ -188,6 +189,15 @@ class DBtools:
         cursor.close()
         connect.close()
 
+    def clear_data(self):
+        connect, cursor = self.create_conn_cursor()
+        cursor.execute('TRUNCATE TABLE processing_ticket')
+        cursor.execute('TRUNCATE TABLE generate_job')
+        cursor.execute('TRUNCATE TABLE image')
+        cursor.execute('TRUNCATE TABLE video')
+        cursor.execute('TRUNCATE TABLE audio')
+        self.close(connect, cursor)
+
     def insert_client(self, data):
         connect, cursor = self.create_conn_cursor()
         insert_query = 'INSERT INTO client VALUES(%s,%s,%s,%s,%s,%s)'
@@ -196,26 +206,38 @@ class DBtools:
 
     def insert_image(self, data):
         connect, cursor = self.create_conn_cursor()
-        insert_query = 'INSERT INTO image VALUES(%s,%s,%s,%s,%s,%s,%s,%s)'
-        cursor.execute(insert_query, data)
+        insert_query = 'INSERT INTO image VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)'
+        try:
+            cursor.execute(insert_query, data)
+        except Exception as e:
+            print(e)
         self.close(connect, cursor)
 
     def insert_video(self, data):
         connect, cursor = self.create_conn_cursor()
         insert_query = 'INSERT INTO video VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
-        cursor.execute(insert_query, data)
+        try:
+            cursor.execute(insert_query, data)
+        except Exception as e:
+            print(e)
         self.close(connect, cursor)
 
     def insert_audio(self, data):
         connect, cursor = self.create_conn_cursor()
         insert_query = 'INSERT INTO audio VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
-        cursor.execute(insert_query, data)
+        try:
+            cursor.execute(insert_query, data)
+        except Exception as e:
+            print(e)
         self.close(connect, cursor)
 
     def insert_job(self, data):
         connect, cursor = self.create_conn_cursor()
         insert_query = 'INSERT INTO generate_job VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
-        cursor.execute(insert_query, data)
+        try:
+            cursor.execute(insert_query, data)
+        except Exception as e:
+            print(e)
         self.close(connect, cursor)
 
     def get_data(self, table_name, where_args=None, all=True):
@@ -235,7 +257,7 @@ class DBtools:
     def get_job_join(self):
         connect, cursor = self.create_conn_cursor()
         select_query = "SELECT gj.id,video.path video_path ,audio.path audio_path,video.id ,audio.id,gj.out_crf,\
-            gj.enhance,image.content image_content,image.filename image_filename,\
+            gj.enhance,image.generate_image_content image_content,image.filename image_filename,\
             video.filename video_filename,audio.filename audio_filename\
             FROM generate_job as gj \
             INNER JOIN  image ON gj.image_id =image.id\
@@ -274,10 +296,10 @@ class DBtools:
 
     def set_ticket_job(self, ticket_id, job_id):
         connect, cursor = self.create_conn_cursor()
-        select_query = f'SELECT * FROM processing_ticket  WHERE job_id={job_id}'
+        select_query = f'SELECT * FROM processing_ticket  WHERE generate_job_id={job_id}'
         cursor.execute(select_query)
         if cursor.fetchone() is None:
-            update_query = f"UPDATE processing_ticket SET job_id={job_id} WHERE id={ticket_id}"
+            update_query = f"UPDATE processing_ticket SET generate_job_id={job_id} WHERE id={ticket_id}"
             cursor.execute(update_query)
             self.close(connect, cursor)
             return True

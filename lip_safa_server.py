@@ -25,11 +25,11 @@ def worker(data_dir):
     os.makedirs(preprocess_dir, exist_ok=True)
     os.makedirs(audio_dir, exist_ok=True)
     with dbtools.session() as sess:
-        print(sess.processing_ticket_id)
         job = dbtools.get_job_join()
         while True:
             time.sleep(5)
             if job is not None:
+                print('job len ',len(job))
                 st = time.time()
                 if dbtools.set_ticket_job(sess.processing_ticket_id, job['id']):
                     tempdir = ".".join(os.path.basename(
@@ -43,6 +43,7 @@ def worker(data_dir):
                         dbtools.update_job_progress(
                             job['id'], 'preprocessing', 25)
                     audio_path = check_audio(job['audio_path'], audio_dir)
+                    print(audio_path)
                     generate_video(face_config, audio_path, 'ckpt/wav2lip_gan.pth',
                                    '/tmp/lip.mp4', batch_size=GENERATE_BATCH_SIZE)
                     dbtools.update_job_progress(
@@ -60,7 +61,7 @@ def worker(data_dir):
                         image_content, '/tmp/lip.mp4', result_path, 'ckpt', crf=job['out_crf'], use_crop=True, use_gfp=job['enhance'])
                     dbtools.update_job_progress(job['id'], 'finish', 100)
                     dbtools.update_job_result(
-                        job['id'], result_filename, result_path)
+                        job['id'], result_filename, gcs_path)
                     dbtools.update_job_process_datetime(job['id'], False)
                     upload_to_gcs(result_path, gcs_path)
                     et = time.time()
