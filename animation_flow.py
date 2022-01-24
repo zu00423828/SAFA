@@ -301,7 +301,7 @@ if __name__ == '__main__':
     # concat_video(f'{root}/1_gfpgan.mp4',f'{root}/out/1.mp4','concat2.mp4')
 
     root='/home/yuan/hdd/safa_test/01_24'
-    make_image_animation_dataflow(f'{root}/0212.png',f'{root}/jerry-generated.mp4',f'{root}/out/4.mp4','ckpt/',use_crop=True)
+    make_image_animation_dataflow(f'{root}/123.TIF',f'{root}/1.mp4',f'{root}/out/6.mp4','ckpt/',use_crop=True)
     # make_image_animation_dataflow(f'{root}/0212.png',f'{root}/2.mp4',f'{root}/out/2.mp4','ckpt/',use_crop=True)
     # make_image_animation_dataflow(f'{root}/0212.png',f'{root}/3.mp4',f'{root}/out/3.mp4','ckpt/',use_crop=True)
     # make_image_animation_dataflow(f'{root}/0212.png',f'{root}/4.mp4',f'{root}/out/4.mp4','ckpt/',use_crop=True)

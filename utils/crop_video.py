@@ -134,7 +134,6 @@ def process_video(inp,output,image_shape=(256,256),increase=0.1,iou_with_initial
         raise (e)
 
     commands += compute_bbox_trajectories(trajectories, fps, frame_shape, inp,image_shape,min_frames,increase,output)
-    print(commands[0])
     command=commands[0]
     subprocess.call(command,shell=True)
     return output

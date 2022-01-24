@@ -10,7 +10,11 @@ from pathlib import Path
 from utils.mysql_dbtool import dbtools
 from utils.gcs_tool import upload_to_gcs, download_gcs
 
-
+def check_video(gcs_path,video_dir):
+    video_path = os.path.join(video_dir, os.path.basename(gcs_path))
+    if not os.path.exists(video_path):
+        download_gcs(gcs_path, video_dir)
+    return video_path
 def check_audio(gcs_path, audio_dir):
     audio_path = os.path.join(audio_dir, os.path.basename(gcs_path))
     if not os.path.exists(audio_path):
@@ -25,10 +29,13 @@ def worker(data_dir):
         "GENERATE_BATCH_SIZE") is None else int(os.environ.get("GENERATE_BATCH_SIZE"))
 
     preprocess_dir = f'{data_dir}/preprocess'
+    video_dir=f'{data_dir}/video'
     audio_dir = f'{data_dir}/audio'
     os.makedirs('temp', exist_ok=True)
     os.makedirs(preprocess_dir, exist_ok=True)
+    os.makedirs(video_dir, exist_ok=True)
     os.makedirs(audio_dir, exist_ok=True)
+    print('server init')
     with dbtools.session() as sess:
         while True:
             try:
@@ -42,11 +49,12 @@ def worker(data_dir):
                         dumpdir = os.path.join(preprocess_dir, tempdir)
                         face_config = os.path.join(dumpdir, 'face.tsv')
                         dbtools.update_job_process_datetime(job['id'], True)
+                        video_path=check_video(job['video_path'],video_dir)
                         if not os.path.exists(face_config):
                             dbtools.update_job_progress(
                                 job['id'], 'preprocessing', 25)
                             face_config = detect_face_and_dump_from_video(
-                                job['video_path'], dumpdir, 'cuda', 96, face_detect_batch_size=FACE_DETECT_BATCH_SIZE, smooth=True)
+                                video_path, dumpdir, 'cuda', 96, face_detect_batch_size=FACE_DETECT_BATCH_SIZE, smooth=True)
                             torch.cuda.empty_cache()
                         audio_path = check_audio(job['audio_path'], audio_dir)
                         dbtools.update_job_progress(

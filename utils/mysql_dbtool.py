@@ -89,6 +89,7 @@ class DBtools:
         audio = '''CREATE TABLE IF NOT EXISTS audio (
             id INTEGER PRIMARY KEY AUTO_INCREMENT,
             `client_id` INTEGER NOT NULL,
+            tts_cache_id INTEGER,
             filename VARCHAR(200) NOT NULL,
             path VARCHAR(200) UNIQUE NOT NULL,
             md5 VARCHAR(32) NOT NULL,
@@ -98,11 +99,13 @@ class DBtools:
             duration FLOAT NOT NULL,
             comment TEXT,
             FOREIGN KEY(client_id) REFERENCES client(id) ON DELETE CASCADE ON UPDATE CASCADE,
+            FOREIGN KEY(tts_cache_id) REFERENCES tts_cache(id) ON DELETE CASCADE ON UPDATE CASCADE,
             UNIQUE KEY `uniq_client_md5` (client_id, md5(32))
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'''
 
         generate_job = '''CREATE TABLE IF NOT EXISTS generate_job (
             id INTEGER PRIMARY KEY AUTO_INCREMENT,
+            client_id INTEGER NOT NULL,
             image_id INTEGER NOT NULL,
             video_id INTEGER NOT NULL,
             audio_id INTEGER NOT NULL,
@@ -116,10 +119,11 @@ class DBtools:
             out_crf INTEGER NOT NULL,
             enhance BOOLEAN NOT NULL,
             comment TEXT NOT NULL,
+            FOREIGN KEY(client_id) REFERENCES client(id) ON DELETE CASCADE ON UPDATE CASCADE,
             FOREIGN KEY(image_id) REFERENCES image(id) ON DELETE CASCADE ON UPDATE CASCADE,
             FOREIGN KEY(video_id) REFERENCES video(id) ON DELETE CASCADE ON UPDATE CASCADE,
             FOREIGN KEY(audio_id) REFERENCES audio(id) ON DELETE CASCADE ON UPDATE CASCADE,
-            UNIQUE KEY unique_item (image_id, video_id, audio_id, out_crf, enhance)
+            UNIQUE KEY unique_item (client_id,image_id, video_id, audio_id, out_crf, enhance)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'''
         tts_cache = '''CREATE TABLE IF NOT EXISTS tts_cache(
             id INTEGER PRIMARY KEY AUTO_INCREMENT,
@@ -157,9 +161,9 @@ class DBtools:
         cursor.execute(client)
         cursor.execute(image)
         cursor.execute(video)
+        cursor.execute(tts_cache)
         cursor.execute(audio)
         cursor.execute(generate_job)
-        cursor.execute(tts_cache)
         cursor.execute(processing_ticket)
         cursor.execute(auth)
         self.close(connect, cursor)
@@ -208,7 +212,7 @@ class DBtools:
 
     def insert_audio(self, data):
         connect, cursor = self.create_conn_cursor()
-        insert_query = 'INSERT INTO audio VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
+        insert_query = 'INSERT INTO audio VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
         try:
             cursor.execute(insert_query, data)
         except Exception as e:
@@ -217,7 +221,7 @@ class DBtools:
 
     def insert_job(self, data):
         connect, cursor = self.create_conn_cursor()
-        insert_query = 'INSERT INTO generate_job VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
+        insert_query = 'INSERT INTO generate_job VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
         try:
             cursor.execute(insert_query, data)
         except Exception as e:
