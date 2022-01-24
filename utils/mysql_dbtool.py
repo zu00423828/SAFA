@@ -7,22 +7,6 @@ from uuid import uuid4
 from .db import pool
 # expiration_day=int(os.environ.get("EXPIRATION_DAY")) if os.environ.get("EXPIRATION_DAY") else 7
 
-
-class PreprocessStatusEnum(Enum):
-    init = "init"
-    preprocessing = "preprocessing"
-    dump = "dump"
-    error = "error"
-
-
-class GenerateStatusEnum(Enum):
-    init = 'init'
-    preprocess = "preprocess"
-    generate = 'generate'
-    finish = 'finish'
-    error = 'error'
-
-
 class JobSession:
     def __init__(self):
         pass
@@ -298,7 +282,8 @@ class DBtools:
         connect, cursor = self.create_conn_cursor()
         select_query = f'SELECT * FROM processing_ticket  WHERE generate_job_id={job_id}'
         cursor.execute(select_query)
-        if cursor.fetchone() is None:
+        result=cursor.fetchone()
+        if result is None:
             update_query = f"UPDATE processing_ticket SET generate_job_id={job_id} WHERE id={ticket_id}"
             cursor.execute(update_query)
             self.close(connect, cursor)
