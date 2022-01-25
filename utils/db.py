@@ -1,11 +1,10 @@
 import pymysql
 import os
 from dbutils.pooled_db import PooledDB
-
 dbhost = os.environ.get("DB_ADDR")
 dbuser = os.environ.get('DB_USER')
 dbpasswd = os.environ.get('DB_PASSWORD')
-dbname=os.environ.get('DB_DBNANE')
+dbname = os.environ.get('DB_DBNANE')
 conn = pymysql . connect(
     host=dbhost,  user=dbuser,  passwd=dbpasswd, charset="utf8")
 cur = conn.cursor()

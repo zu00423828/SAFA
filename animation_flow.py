@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import os
 import torch
-from animation_demo import create_video_animation,create_image_animation
+from animation_demo import create_video_animation, create_image_animation
 from utils.face_restore_helper import create_face_helper
 from utils.mask import _cal_mouth_contour_mask
 from utils.blend import LaplacianBlending
@@ -13,7 +13,9 @@ import subprocess
 from tqdm import trange
 from utils.crop_video import process_video
 from gfpgan import GFPGANer
-def concat_video(left,right,out_path):
+
+
+def concat_video(left, right, out_path):
     video1 = cv2.VideoCapture(left)
     video2 = cv2.VideoCapture(right)
     out = cv2.VideoWriter(
@@ -25,16 +27,18 @@ def concat_video(left,right,out_path):
         ret, frame2 = video2.read()
         if not ret:
             break
-        frame = np.concatenate([frame1,frame2], axis=1)
+        frame = np.concatenate([frame1, frame2], axis=1)
         out.write(frame)
     video1.release()
     video2.release()
     out.release()
     # command=f'ffmpeg -i /tmp/temp_concat.mp4 -i /tmp/temp.wav  {out_path}'
     # subprocess.call(command,shell=True)
+
+
 def check(dir):
-    source_video=cv2.VideoCapture(f'{dir}/source.mp4')
-    result_video=cv2.VideoCapture(f'{dir}/driving.mp4')
+    source_video = cv2.VideoCapture(f'{dir}/source.mp4')
+    result_video = cv2.VideoCapture(f'{dir}/driving.mp4')
     out = cv2.VideoWriter(
         f'{dir}/check.avi', cv2.VideoWriter_fourcc(*'XVID'), 30.0, (256, 256))
     while source_video.isOpened():
@@ -45,19 +49,20 @@ def check(dir):
         if not ret:
             break
         frame = (frame1/2)+(frame2/2)
-        frame=frame.astype(np.uint8)
+        frame = frame.astype(np.uint8)
         out.write(frame)
     out.release()
     source_video.release()
     result_video.release()
+
 
 def extract_landmark(video_path, out_path):
 
     fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D)
     video = cv2.VideoCapture(video_path)
     all_landmarks = []
-    frame_count=int(video.get(7))
-    for _ in  trange(frame_count):
+    frame_count = int(video.get(7))
+    for _ in trange(frame_count):
         ret, frame = video.read()
         if not ret:
             break
@@ -72,44 +77,46 @@ def extract_landmark(video_path, out_path):
         pickle.dump(all_landmarks, f)
     return out_path
 
-def face_preprocess(input_video,landmark_file,save_name):
+
+def face_preprocess(input_video, landmark_file, save_name):
     face_helper = create_face_helper(512)
-    video=cv2.VideoCapture(input_video)
-    f=open(landmark_file,'rb')
+    video = cv2.VideoCapture(input_video)
+    f = open(landmark_file, 'rb')
     video_landmarks = pickle.load(f)
-    out_path=f'{save_name}.mp4'
+    out_path = f'{save_name}.mp4'
     out = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(
-        *'MP4V'), 30.0, (256,256))
-    matrix_list=[]
-    new_landmark_list=[]
-    data_len=min(len(video_landmarks),int(video.get(7)))
+        *'MP4V'), 30.0, (256, 256))
+    matrix_list = []
+    new_landmark_list = []
+    data_len = min(len(video_landmarks), int(video.get(7)))
     for i in trange(data_len):
-        _,frame=video.read()
-        frame_landmark=video_landmarks[i]
+        _, frame = video.read()
+        frame_landmark = video_landmarks[i]
         if frame_landmark is None:
             matrix_list.append(None)
             new_landmark_list.append(None)
-            large_face=np.zeros((256,256,3),np.uint8)
+            large_face = np.zeros((256, 256, 3), np.uint8)
         else:
             face_helper.clean_all()
             face_helper.read_image(frame)
-            face_helper.get_face_landmarks_3(frame_landmark, only_keep_largest=True, eye_dist_threshold=5)
+            face_helper.get_face_landmarks_3(
+                frame_landmark, only_keep_largest=True, eye_dist_threshold=5)
             face_helper.align_warp_face()
 
             assert len(face_helper.cropped_faces) != 0
-            
 
             affine_matrix = face_helper.affine_matrices[0]
             large_face = face_helper.cropped_faces[0]
-            affine_landmarks = (np.matmul(affine_matrix[:, :2], frame_landmark.T) + affine_matrix[:, 2:]).T
+            affine_landmarks = (
+                np.matmul(affine_matrix[:, :2], frame_landmark.T) + affine_matrix[:, 2:]).T
             matrix_list.append(affine_matrix)
             new_landmark_list.append(affine_landmarks)
-        out.write(cv2.resize(large_face,(256,256)))
-    out_data_path=f'{save_name}_data.pkl'
-    with open(out_data_path,'wb') as f:
-            pickle.dump({'matrix':matrix_list,'affine_landmark':new_landmark_list},f)
-    return out_path,out_data_path
-
+        out.write(cv2.resize(large_face, (256, 256)))
+    out_data_path = f'{save_name}_data.pkl'
+    with open(out_data_path, 'wb') as f:
+        pickle.dump(
+            {'matrix': matrix_list, 'affine_landmark': new_landmark_list}, f)
+    return out_path, out_data_path
 
 
 def create_lb(iters: int = None, ksize: int = 3, sigma=0):
@@ -120,6 +127,7 @@ def create_lb(iters: int = None, ksize: int = 3, sigma=0):
     for param in lb.parameters():
         param.requires_grad = False
     return lb
+
 
 def quantize_position(x1, x2, y1, y2, iters=None):
     w = x2 - x1
@@ -142,44 +150,54 @@ def quantize_position(x1, x2, y1, y2, iters=None):
         y2 -= y1
         y1 = 0
     return int(x1), int(x2), int(y1), int(y2)
-def paste_origin_video(source_origin_path,safa_video_path,temp_dir,landmark_path,source_video_data_path):
-    full_video=cv2.VideoCapture(source_origin_path)
-    crop_video=cv2.VideoCapture(safa_video_path)
-    out_video_path=f'{temp_dir}/paste_temp.mp4'
-    h= int(full_video.get(4))
-    w= int(full_video.get(3))
+
+
+def paste_origin_video(source_origin_path, safa_video_path, temp_dir, landmark_path, source_video_data_path):
+    full_video = cv2.VideoCapture(source_origin_path)
+    crop_video = cv2.VideoCapture(safa_video_path)
+    out_video_path = f'{temp_dir}/paste_temp.mp4'
+    h = int(full_video.get(4))
+    w = int(full_video.get(3))
     out_video = cv2.VideoWriter(out_video_path, cv2.VideoWriter_fourcc(
-        *'XVID'), 30.0, (w,h))
-    lb=create_lb(4)
-    with open(landmark_path,'rb' ) as f:
-        source_landmark=pickle.load(f)
-    with open(source_video_data_path,'rb') as f:
-        source_data= pickle.load(f)
-        soucre_matrix=source_data['matrix']
+        *'XVID'), 30.0, (w, h))
+    lb = create_lb(4)
+    with open(landmark_path, 'rb') as f:
+        source_landmark = pickle.load(f)
+    with open(source_video_data_path, 'rb') as f:
+        source_data = pickle.load(f)
+        soucre_matrix = source_data['matrix']
         # source_affine_landmark=source_data['affine_landmark'] #512*512  landmark
-    frame_count= int(crop_video.get(7))#min(len(source_affine_landmark),len(drive_data_affine_landmark))
-    for i in  trange(frame_count):
-        _,full_frame=full_video.read()
-        _,crop_frame=crop_video.read()
+    # min(len(source_affine_landmark),len(drive_data_affine_landmark))
+    frame_count = int(crop_video.get(7))
+    for i in trange(frame_count):
+        _, full_frame = full_video.read()
+        _, crop_frame = crop_video.read()
 
         if source_landmark[i] is None:
-            full_out= full_frame.copy()
+            full_out = full_frame.copy()
         else:
-            crop_frame=cv2.resize(crop_frame,(512,512))
-            inv_matrix=cv2.invertAffineTransform(soucre_matrix[i])
+            crop_frame = cv2.resize(crop_frame, (512, 512))
+            inv_matrix = cv2.invertAffineTransform(soucre_matrix[i])
             new_frame = cv2.warpAffine(
-                    crop_frame, inv_matrix,(w,h), borderMode=cv2.BORDER_CONSTANT, borderValue=(135, 133, 132)) 
+                crop_frame, inv_matrix, (w, h), borderMode=cv2.BORDER_CONSTANT, borderValue=(135, 133, 132))
 
-            x1,x2,y1,y2=quantize_position(0,w,0,h,4)
-            mask=_cal_mouth_contour_mask(source_landmark[i],y2,x2,None,0.1)
-            if x2>w or y2>h:
-                full_frame=cv2.copyMakeBorder(full_frame,0,max(0,y2-h),0,max(0,x2-w),cv2.BORDER_CONSTANT,value=[255,255,255])
-                new_frame=cv2.copyMakeBorder(new_frame,0,max(0,y2-h),0,max(0,x2-w),cv2.BORDER_CONSTANT,value=[255,255,255])
-            mask_tesor=torch.tensor(mask,dtype=torch.float32).permute(2,0,1).unsqueeze(0)
-            y_tensor=torch.tensor(full_frame/255,dtype=torch.float32).permute(2,0,1).unsqueeze(0)
-            x_tensor=torch.tensor(new_frame/255,dtype=torch.float32).permute(2,0,1).unsqueeze(0)
-            out=lb(y_tensor,x_tensor,mask_tesor)
-            full_out=(out[0][:,:h,:w].permute(1,2,0)*255).numpy().astype(np.uint8)
+            x1, x2, y1, y2 = quantize_position(0, w, 0, h, 4)
+            mask = _cal_mouth_contour_mask(
+                source_landmark[i], y2, x2, None, 0.1)
+            if x2 > w or y2 > h:
+                full_frame = cv2.copyMakeBorder(full_frame, 0, max(
+                    0, y2-h), 0, max(0, x2-w), cv2.BORDER_CONSTANT, value=[255, 255, 255])
+                new_frame = cv2.copyMakeBorder(new_frame, 0, max(
+                    0, y2-h), 0, max(0, x2-w), cv2.BORDER_CONSTANT, value=[255, 255, 255])
+            mask_tesor = torch.tensor(
+                mask, dtype=torch.float32).permute(2, 0, 1).unsqueeze(0)
+            y_tensor = torch.tensor(
+                full_frame/255, dtype=torch.float32).permute(2, 0, 1).unsqueeze(0)
+            x_tensor = torch.tensor(
+                new_frame/255, dtype=torch.float32).permute(2, 0, 1).unsqueeze(0)
+            out = lb(y_tensor, x_tensor, mask_tesor)
+            full_out = (out[0][:, :h, :w].permute(
+                1, 2, 0)*255).numpy().astype(np.uint8)
         out_video.write(full_out)
     out_video.release()
     # out_video2.release()
@@ -187,7 +205,8 @@ def paste_origin_video(source_origin_path,safa_video_path,temp_dir,landmark_path
     crop_video.release()
     return out_video_path
 
-def video_gfpgan_process(origin_video_path,landmark_path,use_gfp=True,model_dir='ckpt'):
+
+def video_gfpgan_process(origin_video_path, landmark_path, use_gfp=True, model_dir='ckpt'):
     if use_gfp:
         restorer = GFPGANer(
             model_path=f'{model_dir}/GFPGANCleanv1-NoCE-C2.pth',
@@ -196,44 +215,52 @@ def video_gfpgan_process(origin_video_path,landmark_path,use_gfp=True,model_dir=
             channel_multiplier=2,
             bg_upsampler=None)
 
-    full_video=cv2.VideoCapture(origin_video_path)
-    out_video_path='/tmp/paste_temp.mp4'
-    h= int(full_video.get(4))
-    w= int(full_video.get(3))
+    full_video = cv2.VideoCapture(origin_video_path)
+    out_video_path = '/tmp/paste_temp.mp4'
+    h = int(full_video.get(4))
+    w = int(full_video.get(3))
     out_video = cv2.VideoWriter(out_video_path, cv2.VideoWriter_fourcc(
-        *'XVID'), 30.0, (w,h))
-    lb=create_lb(4)
-    with open(landmark_path,'rb' ) as f:
-        source_landmark=pickle.load(f)
-    frame_count= int(full_video.get(7))#min(len(source_affine_landmark),len(drive_data_affine_landmark))
-    for i in  trange(frame_count):
-        _,full_frame=full_video.read()
+        *'XVID'), 30.0, (w, h))
+    lb = create_lb(4)
+    with open(landmark_path, 'rb') as f:
+        source_landmark = pickle.load(f)
+    # min(len(source_affine_landmark),len(drive_data_affine_landmark))
+    frame_count = int(full_video.get(7))
+    for i in trange(frame_count):
+        _, full_frame = full_video.read()
         if source_landmark[i] is None:
-            full_out= full_frame.copy()
+            full_out = full_frame.copy()
         else:
-            enhance_img=full_frame.copy()
+            enhance_img = full_frame.copy()
             if use_gfp:
-                _,_,enhance_img=restorer.enhance(full_frame, has_aligned=False, only_center_face=False, paste_back=True)
-                enhance_img=cv2.resize(enhance_img,(256,256))
-            x1,x2,y1,y2=quantize_position(0,w,0,h,4)
-            mask=_cal_mouth_contour_mask(source_landmark[i],y2,x2,None,0.1)
-            if x2>w or y2>h:
-                full_frame=cv2.copyMakeBorder(full_frame,0,max(0,y2-h),0,max(0,x2-w),cv2.BORDER_CONSTANT,value=[255,255,255])
-                enhance_img=cv2.copyMakeBorder(enhance_img,0,max(0,y2-h),0,max(0,x2-w),cv2.BORDER_CONSTANT,value=[255,255,255])
-            mask_tesor=torch.tensor(mask,dtype=torch.float32).permute(2,0,1).unsqueeze(0)
-            y_tensor=torch.tensor(full_frame/255,dtype=torch.float32).permute(2,0,1).unsqueeze(0)
-            x_tensor=torch.tensor(enhance_img/255,dtype=torch.float32).permute(2,0,1).unsqueeze(0)
-            out=lb(y_tensor,x_tensor,mask_tesor)
-            full_out=(out[0][:,:h,:w].permute(1,2,0)*255).numpy().astype(np.uint8)
+                _, _, enhance_img = restorer.enhance(
+                    full_frame, has_aligned=False, only_center_face=False, paste_back=True)
+                enhance_img = cv2.resize(enhance_img, (256, 256))
+            x1, x2, y1, y2 = quantize_position(0, w, 0, h, 4)
+            mask = _cal_mouth_contour_mask(
+                source_landmark[i], y2, x2, None, 0.1)
+            if x2 > w or y2 > h:
+                full_frame = cv2.copyMakeBorder(full_frame, 0, max(
+                    0, y2-h), 0, max(0, x2-w), cv2.BORDER_CONSTANT, value=[255, 255, 255])
+                enhance_img = cv2.copyMakeBorder(enhance_img, 0, max(
+                    0, y2-h), 0, max(0, x2-w), cv2.BORDER_CONSTANT, value=[255, 255, 255])
+            mask_tesor = torch.tensor(
+                mask, dtype=torch.float32).permute(2, 0, 1).unsqueeze(0)
+            y_tensor = torch.tensor(
+                full_frame/255, dtype=torch.float32).permute(2, 0, 1).unsqueeze(0)
+            x_tensor = torch.tensor(
+                enhance_img/255, dtype=torch.float32).permute(2, 0, 1).unsqueeze(0)
+            out = lb(y_tensor, x_tensor, mask_tesor)
+            full_out = (out[0][:, :h, :w].permute(
+                1, 2, 0)*255).numpy().astype(np.uint8)
         out_video.write(full_out)
     out_video.release()
     # out_video2.release()
     full_video.release()
     return out_video_path
 
-    
 
-def make_animation_dataflow(source_origin_path,driving_origin_path,temp_dir,result_path,model_path,config_path=None,add_audo=False):
+def make_animation_dataflow(source_origin_path, driving_origin_path, temp_dir, result_path, model_path, config_path=None, add_audo=False):
     '''
     參數  
     source_origin_path：被操控的原影片路徑 \n
@@ -247,61 +274,77 @@ def make_animation_dataflow(source_origin_path,driving_origin_path,temp_dir,resu
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
     if config_path is None:
-        config_path=f"{os.path.split(os.path.realpath(__file__))[0]}/config/end2end.yaml"
+        config_path = f"{os.path.split(os.path.realpath(__file__))[0]}/config/end2end.yaml"
     print('extract_landmark: source')
-    landmark_path=extract_landmark(source_origin_path,f'{temp_dir}/source.pkl')
+    landmark_path = extract_landmark(
+        source_origin_path, f'{temp_dir}/source.pkl')
     print('crop_video: source')
-    source_video_path,source_data_path=face_preprocess(source_origin_path,landmark_path,f'{temp_dir}/source')
+    source_video_path, source_data_path = face_preprocess(
+        source_origin_path, landmark_path, f'{temp_dir}/source')
     print('crop_video: driving')
-    driving_video_path,driving_video_data_path=face_preprocess(driving_origin_path,landmark_path,f'{temp_dir}/driving')
+    driving_video_path, driving_video_data_path = face_preprocess(
+        driving_origin_path, landmark_path, f'{temp_dir}/driving')
     print('generate safa_result_video')
-    safa_video_path=create_video_animation(source_video_path,driving_video_path,f'{temp_dir}/temp.mp4',config_path,model_path,with_eye=True,relative=False,adapt_scale=True)
+    safa_video_path = create_video_animation(
+        source_video_path, driving_video_path, f'{temp_dir}/temp.mp4', config_path, model_path, with_eye=True, relative=False, adapt_scale=True)
     print('paste safa_result_video on the origin source video ')
-    temp_paste_video_path=paste_origin_video(source_origin_path,safa_video_path,temp_dir,landmark_path,source_data_path)
-    video=cv2.VideoCapture(temp_paste_video_path)
-    fps=video.get(5)
+    temp_paste_video_path = paste_origin_video(
+        source_origin_path, safa_video_path, temp_dir, landmark_path, source_data_path)
+    video = cv2.VideoCapture(temp_paste_video_path)
+    fps = video.get(5)
     video.release()
     if add_audo:
-        command=f"ffmpeg -y -i {driving_origin_path} {temp_dir}/temp.wav "
-        subprocess.call(command,shell=True)
-        command=f"ffmpeg -y -i {temp_paste_video_path} -i {temp_dir}/temp.wav -vf fps={fps} -crf 0 -vcodec h264  {result_path} " #-preset veryslow
-        subprocess.call(command,shell=True)
+        command = f"ffmpeg -y -i {driving_origin_path} {temp_dir}/temp.wav "
+        subprocess.call(command, shell=True)
+        # -preset veryslow
+        command = f"ffmpeg -y -i {temp_paste_video_path} -i {temp_dir}/temp.wav -vf fps={fps} -crf 0 -vcodec h264  {result_path} "
+        subprocess.call(command, shell=True)
     else:
-        command=f"ffmpeg -y -i {temp_paste_video_path}  -vf fps={fps} -crf 0 -vcodec h264  {result_path} " #-preset veryslow
-        subprocess.call(command,shell=True)
+        # -preset veryslow
+        command = f"ffmpeg -y -i {temp_paste_video_path}  -vf fps={fps} -crf 0 -vcodec h264  {result_path} "
+        subprocess.call(command, shell=True)
 
-def make_image_animation_dataflow(source_path,driving_origin_path,result_path,model_dir,use_crop=False,crf=0,use_gfp=True,):
-    config_path=f"{os.path.split(os.path.realpath(__file__))[0]}/config/end2end.yaml"
-    if use_crop :
-        driving_video_path=process_video(driving_origin_path,'/tmp/driving.mp4')
+
+def make_image_animation_dataflow(source_path, driving_origin_path, result_path, model_dir, use_crop=False, crf=0, use_gfp=True,):
+    config_path = f"{os.path.split(os.path.realpath(__file__))[0]}/config/end2end.yaml"
+    if use_crop:
+        print('crop driving video', flush=True)
+        driving_video_path = process_video(
+            driving_origin_path, '/tmp/driving.mp4')
+        torch.cuda.empty_cache()
     else:
-        driving_video_path=driving_origin_path
-    print('create animation')
-    safa_model_path=f'{model_dir}/final_3DV.tar'
-    safa_video=create_image_animation(source_path,driving_video_path,'/tmp/temp.mp4',config_path,safa_model_path,with_eye=True,relative=True,adapt_scale=True,use_best_frame=False)
+        driving_video_path = driving_origin_path
+    print('create animation', flush=True)
+    safa_model_path = f'{model_dir}/final_3DV.tar'
+    safa_video = create_image_animation(source_path, driving_video_path, '/tmp/temp.mp4', config_path,
+                                        safa_model_path, with_eye=True, relative=True, adapt_scale=True, use_best_frame=False)
     torch.cuda.empty_cache()
-    print('extract landmark')
-    ldmk_path=extract_landmark(safa_video,'/tmp/ldmk.pkl')
+    print('extract landmark', flush=True)
+    ldmk_path = extract_landmark(safa_video, '/tmp/ldmk.pkl')
     torch.cuda.empty_cache()
-    print('gfp process')
-    paste_video_path=video_gfpgan_process(safa_video,ldmk_path,use_gfp,model_dir=model_dir)
-    command=f"ffmpeg -y -i {driving_video_path} /tmp/temp.wav "
-    subprocess.call(command,shell=True)
-    command=f"ffmpeg -y -i {paste_video_path} -i /tmp/temp.wav  -crf  {crf} -vcodec h264  {result_path} " #-preset veryslow
-    subprocess.call(command,shell=True)
+    print('gfp process', flush=True)
+    paste_video_path = video_gfpgan_process(
+        safa_video, ldmk_path, use_gfp, model_dir=model_dir)
+    command = f"ffmpeg -y -i {driving_video_path} /tmp/temp.wav "
+    subprocess.call(command, shell=True)
+    # -preset veryslow
+    command = f"ffmpeg -y -i {paste_video_path} -i /tmp/temp.wav  -crf  {crf} -vcodec h264  {result_path} "
+    subprocess.call(command, shell=True)
+
+
 if __name__ == '__main__':
     # inference_animation_dataflow('new_test/source_all.mp4','new_test/driving_all.mp4','temp','finish.mp4','ckpt/final_3DV.tar')
     # make_animation_dataflow('test1/1.mp4','test1/1.mp4','test1/temp','finish_t.mp4','ckpt/final_3DV.tar',add_audo=True)
     # make_animation_dataflow('finish.mp4','finish_2/driving_all.mp4','finish_2/temp','finish2.mp4','ckpt/final_3DV.tar',add_audo=True)
     # concat_video('/home/yuan/repo/my_safa/01_18/1.mp4','/home/yuan/repo/my_safa/01_18/out/1_1.mp4','concat.mp4')
 
-
     # root='/home/yuan/hdd/safa_test/01_18_2'
     # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/1.mp4',f'{root}/1_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=False)
     # concat_video(f'{root}/1_gfpgan.mp4',f'{root}/out/1.mp4','concat2.mp4')
 
-    root='/home/yuan/hdd/safa_test/01_24'
-    make_image_animation_dataflow(f'{root}/123.TIF',f'{root}/1.mp4',f'{root}/out/6.mp4','ckpt/',use_crop=True)
+    root = '/home/yuan/hdd/safa_test/01_24'
+    make_image_animation_dataflow(
+        f'{root}/123.TIF', f'{root}/1.mp4', f'{root}/out/6.mp4', 'ckpt/', use_crop=True)
     # make_image_animation_dataflow(f'{root}/0212.png',f'{root}/2.mp4',f'{root}/out/2.mp4','ckpt/',use_crop=True)
     # make_image_animation_dataflow(f'{root}/0212.png',f'{root}/3.mp4',f'{root}/out/3.mp4','ckpt/',use_crop=True)
     # make_image_animation_dataflow(f'{root}/0212.png',f'{root}/4.mp4',f'{root}/out/4.mp4','ckpt/',use_crop=True)
@@ -309,22 +352,18 @@ if __name__ == '__main__':
     # make_image_animation_dataflow(f'{root}/EP010-18.png',f'{root}/2.mp4',f'{root}/out/2_3.mp4','ckpt/final_3DV.tar',use_crop=False)
     # make_image_animation_dataflow(f'{root}/EP010-18.png',f'{root}/3.mp4',f'{root}/out/3_3.mp4','ckpt/final_3DV.tar',use_crop=False)
     # make_image_animation_dataflow(f'{root}/EP010-18.png',f'{root}/4.mp4',f'{root}/out/4_3.mp4','ckpt/final_3DV.tar',use_crop=False)
-    
+
     # root='/home/yuan/hdd/safa_test/01_18_1/woman'
     # make_image_animation_dataflow(f'{root}/EP007-02new.jpg',f'{root}/1.mp4',f'{root}/out1/1_1.mp4','ckpt/final_3DV.tar',use_crop=False)
     # make_image_animation_dataflow(f'{root}/EP007-02new.jpg',f'{root}/2.mp4',f'{root}/out1/2_1.mp4','ckpt/final_3DV.tar',use_crop=False)
     # make_image_animation_dataflow(f'{root}/EP007-02new.jpg',f'{root}/3.mp4',f'{root}/out1/3_1.mp4','ckpt/final_3DV.tar',use_crop=False)
     # make_image_animation_dataflow(f'{root}/EP007-02new.jpg',f'{root}/4.mp4',f'{root}/out1/4_1.mp4','ckpt/final_3DV.tar',use_crop=False)
-    
- 
+
     # root='/home/yuan/hdd/safa_test/01_18_1/woman2'
     # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/1.mp4',f'{root}/out1/1_2.mp4','ckpt/final_3DV.tar',use_crop=False)
     # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/2.mp4',f'{root}/out1/2_2.mp4','ckpt/final_3DV.tar',use_crop=False)
     # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/3.mp4',f'{root}/out1/3_2.mp4','ckpt/final_3DV.tar',use_crop=False)
     # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/4.mp4',f'{root}/out1/4_2.mp4','ckpt/final_3DV.tar',use_crop=False)
-    
- 
- 
 
 
 # ffmpeg -i test/input1.mp4  -filter:v "crop=476:476:733:151, scale=256:256" crop.mp4

@@ -7,6 +7,7 @@ from uuid import uuid4
 from .db import pool
 # expiration_day=int(os.environ.get("EXPIRATION_DAY")) if os.environ.get("EXPIRATION_DAY") else 7
 
+
 class JobSession:
     def __init__(self):
         pass
@@ -111,13 +112,13 @@ class DBtools:
             audio_id INTEGER NOT NULL,
             filename VARCHAR(200) UNIQUE ,
             path TEXT,
-            status TEXT NOT NULL,
-            progress INTEGER NOT NULL,
+            status ENUM('init','preprocessing','lipsyncing','image-animating','finished') NOT NULL DEFAULT 'init',
+            progress INTEGER NOT NULL DEFAULT 0,
             create_datetime DATETIME NOT NULL,
-            start_datetime DATETIME ,
+            start_datetime DATETIME,
             end_datetime DATETIME,
-            out_crf INTEGER NOT NULL,
-            enhance BOOLEAN NOT NULL,
+            out_crf INTEGER NOT NULL DEFAULT 10,
+            enhance BOOLEAN NOT NULL DEFAULT true,
             comment TEXT NOT NULL,
             FOREIGN KEY(client_id) REFERENCES client(id) ON DELETE CASCADE ON UPDATE CASCADE,
             FOREIGN KEY(image_id) REFERENCES image(id) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -128,6 +129,7 @@ class DBtools:
         tts_cache = '''CREATE TABLE IF NOT EXISTS tts_cache(
             id INTEGER PRIMARY KEY AUTO_INCREMENT,
             tts_content LONGBLOB NOT NULL,
+            platform ENUM('google', 'azure') NOT NULL,
             transform_text TEXT NOT NULL,
             lang VARCHAR(10) NOT NULL,
             voice VARCHAR(30) NOT NULL,
@@ -135,6 +137,20 @@ class DBtools:
             create_datetime DATETIME NOT NULL,
             expiration_datetime DATETIME NOT NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'''
+        tts_subscription = '''
+            CREATE TABLE IF NOT EXISTS `tts_subscription` (
+            `id` INTEGER PRIMARY KEY AUTO_INCREMENT,
+            `client_id` INTEGER NOT NULL,
+            `platform` ENUM('google', 'azure') NOT NULL,
+            `lang` VARCHAR(10) NOT NULL,
+            `voice` VARCHAR(30) NOT NULL,
+            `create_datetime` DATETIME NOT NULL,
+            `comment` TEXT NOT NULL,
+            UNIQUE KEY `uniq_tts_sub` (client_id, platform, lang(10), voice(30)),
+            FOREIGN KEY(client_id) REFERENCES client(id)
+            ON DELETE CASCADE ON UPDATE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            '''
         processing_ticket = '''CREATE TABLE IF NOT EXISTS processing_ticket(
             id INTEGER PRIMARY KEY AUTO_INCREMENT,
             value CHAR(40) NOT NULL,
@@ -162,6 +178,7 @@ class DBtools:
         cursor.execute(image)
         cursor.execute(video)
         cursor.execute(tts_cache)
+        cursor.execute(tts_subscription)
         cursor.execute(audio)
         cursor.execute(generate_job)
         cursor.execute(processing_ticket)
@@ -185,6 +202,14 @@ class DBtools:
         cursor.execute('TRUNCATE TABLE video')
         cursor.execute('TRUNCATE TABLE audio')
         self.close(connect, cursor)
+
+    def check_md5(self, table, md5):
+        connect, cursor = self.create_conn_cursor()
+        select_query = f"SELECT * FROM {table} WHERE md5='{md5}'"
+        cursor.execute(select_query)
+        result = cursor.fetchone()
+        self.close(connect, cursor)
+        return result
 
     def insert_client(self, data):
         connect, cursor = self.create_conn_cursor()
@@ -251,7 +276,7 @@ class DBtools:
             INNER JOIN  image ON gj.image_id =image.id\
             INNER JOIN video ON gj.video_id=video.id \
             INNER JOIN audio ON gj.audio_id=audio.id \
-            WHERE gj.status!='finish' ORDER BY gj.id ASC"
+            WHERE gj.status!='finished' ORDER BY gj.id ASC"
         cursor.execute(select_query)
         result = cursor.fetchone()
         self.close(connect, cursor)
@@ -286,7 +311,7 @@ class DBtools:
         connect, cursor = self.create_conn_cursor()
         select_query = f'SELECT * FROM processing_ticket  WHERE generate_job_id={job_id}'
         cursor.execute(select_query)
-        result=cursor.fetchone()
+        result = cursor.fetchone()
         if result is None:
             update_query = f"UPDATE processing_ticket SET generate_job_id={job_id} WHERE id={ticket_id}"
             cursor.execute(update_query)
