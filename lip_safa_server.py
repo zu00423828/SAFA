@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 from enum import Enum
 from utils.mysql_dbtool import dbtools
+from utils.file import add_client,add_video2db
 from utils.gcs_tool import upload_to_gcs, download_gcs
 
 
@@ -48,6 +49,17 @@ def worker(data_dir):
     os.makedirs(video_dir, exist_ok=True)
     os.makedirs(audio_dir, exist_ok=True)
     print('server init')
+    # init video2 db and upload gcs#
+    account = 'share'
+    try:
+        add_client(account)
+    except Exception as e:
+        print(e)
+    account = 'share'
+    client_id = dbtools.get_data(
+        'client', f"account='{account}'", all=False)['id']
+    add_video2db(client_id, 'mock_dir/driving_man.mp4', '')
+    add_video2db(client_id, 'mock_dir/driving_woman.mp4', '')
     with dbtools.session() as sess:
         while True:
             time.sleep(30)
