@@ -48,7 +48,7 @@ def worker(data_dir):
     os.makedirs(preprocess_dir, exist_ok=True)
     os.makedirs(video_dir, exist_ok=True)
     os.makedirs(audio_dir, exist_ok=True)
-    print('server init')
+    print('server init',flush=True)
     # init video2 db and upload gcs#
     account = 'share'
     try:

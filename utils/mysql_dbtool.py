@@ -119,7 +119,7 @@ class DBtools:
             end_datetime DATETIME,
             out_crf INTEGER NOT NULL DEFAULT 10,
             enhance BOOLEAN NOT NULL DEFAULT true,
-            comment TEXT NOT NULL,
+            comment TEXT,
             FOREIGN KEY(client_id) REFERENCES client(id) ON DELETE CASCADE ON UPDATE CASCADE,
             FOREIGN KEY(image_id) REFERENCES image(id) ON DELETE CASCADE ON UPDATE CASCADE,
             FOREIGN KEY(video_id) REFERENCES video(id) ON DELETE CASCADE ON UPDATE CASCADE,
