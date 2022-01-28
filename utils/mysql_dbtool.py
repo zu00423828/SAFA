@@ -62,6 +62,7 @@ class DBtools:
         image = '''CREATE TABLE IF NOT EXISTS image (
             id INTEGER PRIMARY KEY AUTO_INCREMENT,
             `client_id` INTEGER NOT NULL,
+            gender ENUM('male','female') NOT NULL,
             filename VARCHAR(200) NOT NULL,
             display_image_content LONGBLOB NOT NULL,
             generate_image_content LONGBLOB NOT NULL,
@@ -128,6 +129,7 @@ class DBtools:
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'''
         tts_cache = '''CREATE TABLE IF NOT EXISTS tts_cache(
             id INTEGER PRIMARY KEY AUTO_INCREMENT,
+            filename VARCHAR(200) UNIQUE NOT NULL ,
             tts_content LONGBLOB NOT NULL,
             platform ENUM('google', 'azure') NOT NULL,
             transform_text TEXT NOT NULL,
@@ -219,7 +221,7 @@ class DBtools:
 
     def insert_image(self, data):
         connect, cursor = self.create_conn_cursor()
-        insert_query = 'INSERT INTO image VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)'
+        insert_query = 'INSERT INTO image VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
         try:
             cursor.execute(insert_query, data)
         except Exception as e:

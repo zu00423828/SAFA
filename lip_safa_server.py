@@ -8,10 +8,12 @@ import os
 from pathlib import Path
 from enum import Enum
 from utils.mysql_dbtool import dbtools
-from utils.file import add_client,add_video2db
+from utils.file import add_client,add_video2db,add_image2db
 from utils.gcs_tool import upload_to_gcs, download_gcs
 
-
+class Gender(Enum):
+    male='male'
+    female='female'
 class Status(Enum):
     init = 'init'
     preprocessing = 'preprocessing'
@@ -60,6 +62,10 @@ def worker(data_dir):
         'client', f"account='{account}'", all=False)['id']
     add_video2db(client_id, 'mock_dir/driving_man.mp4', '')
     add_video2db(client_id, 'mock_dir/driving_woman.mp4', '')
+    add_image2db(client_id, 'mock_dir/0212.png',Gender.female.value, '')
+    add_image2db(client_id, 'mock_dir/EP007-02new.jpg',Gender.female.value, '')
+    add_image2db(client_id, 'mock_dir/EP010-08.jpg',Gender.female.value, '')
+    add_image2db(client_id, 'mock_dir/EP010-18.png',Gender.male.value, '')
     with dbtools.session() as sess:
         while True:
             time.sleep(30)

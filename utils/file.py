@@ -66,14 +66,14 @@ def add_audio2db(client_id, filepath, comment):
         upload_to_gcs(filepath, filepath_gcs)
 
 
-def add_image2db(client_id, filepath, comment):
+def add_image2db(client_id, filepath,gender, comment):
     filename = Path(filepath).stem
     with open(filepath, 'rb') as f:
         content = f.read()
     md5 = get_file_md5(filepath)
     upload_datetime = datetime.now()
     size_mb = get_size_mb(filepath)
-    data = (None, client_id, filename,content, content,
+    data = (None, client_id, gender,filename,content, content,
             md5, upload_datetime, size_mb, comment)
     dbtools.insert_image(data)
 
