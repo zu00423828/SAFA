@@ -143,12 +143,13 @@ class DBtools:
             CREATE TABLE IF NOT EXISTS `tts_subscription` (
             `id` INTEGER PRIMARY KEY AUTO_INCREMENT,
             `client_id` INTEGER NOT NULL,
+            `name` VARCHAR(200) NOT NULL,
             `platform` ENUM('google', 'azure') NOT NULL,
             `lang` VARCHAR(10) NOT NULL,
             `voice` VARCHAR(30) NOT NULL,
             `create_datetime` DATETIME NOT NULL,
-            `comment` TEXT NOT NULL,
-            UNIQUE KEY `uniq_tts_sub` (client_id, platform, lang(10), voice(30)),
+            `comment` TEXT ,
+            UNIQUE KEY `uniq_tts_sub` (client_id, name, platform, lang(10), voice(30)),
             FOREIGN KEY(client_id) REFERENCES client(id)
             ON DELETE CASCADE ON UPDATE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
