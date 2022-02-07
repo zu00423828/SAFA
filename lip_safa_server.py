@@ -98,9 +98,9 @@ def worker(data_dir):
                         # audio_name = Path(job['audio_filename']).stem
                         torch.cuda.empty_cache()
                         filename = uuid4().hex
-                        result_path = f"/tmp/{filename}.mp4"
+                        result_path = f"/tmp/finish.mp4"
                         gcs_path = f"result/{filename}.mp4"
-                        result_filename = os.path.basename(result_path)
+                        result_filename = os.path.basename(gcs_path)
                         image_content = job['image_content']
                         dbtools.update_job_progress(
                             job['id'], Status.image_animating.value, 75)

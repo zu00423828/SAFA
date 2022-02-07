@@ -310,7 +310,7 @@ def make_image_animation_dataflow(source_path, driving_origin_path, result_path,
     if use_crop:
         print('crop driving video', flush=True)
         driving_video_path = process_video(
-            driving_origin_path, '/tmp/driving.mp4')
+            driving_origin_path, '/tmp/driving.mp4',min_frames=15)
         torch.cuda.empty_cache()
     else:
         driving_video_path = driving_origin_path

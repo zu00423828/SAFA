@@ -112,7 +112,7 @@ class DBtools:
             video_id INTEGER NOT NULL,
             audio_id INTEGER NOT NULL,
             filename VARCHAR(200) UNIQUE ,
-            path TEXT,
+            path TEXT UNIQUE,
             status ENUM('init','preprocessing','lipsyncing','image-animating','finished') NOT NULL DEFAULT 'init',
             progress INTEGER NOT NULL DEFAULT 0,
             create_datetime DATETIME NOT NULL,
