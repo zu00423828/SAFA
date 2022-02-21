@@ -141,8 +141,10 @@ def process_video(inp,output,image_shape=(256,256),increase=0.1,iou_with_initial
 
 
 if __name__ == "__main__":
-    commands = process_video()
-    for command in commands:
-        print (command)
+    inp='/home/yuan/repo/my_safa/mock_dir/driving_man.mp4'
+    output='/home/yuan/repo/Talking-Face_PC-AVS/misc/test_driving_increase-01.mp4'
+    commands = process_video(inp,output,image_shape=(224,224),increase=-0.1)
+    # for command in commands:
+    #     print (command)
 
         

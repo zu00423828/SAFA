@@ -113,7 +113,7 @@ class DBtools:
             audio_id INTEGER NOT NULL,
             filename VARCHAR(200) UNIQUE ,
             path TEXT UNIQUE,
-            status ENUM('init','preprocessing','lipsyncing','image-animating','finished') NOT NULL DEFAULT 'init',
+            status ENUM('init','preprocessing','lipsyncing','image-animating','finished','error') NOT NULL DEFAULT 'init',
             progress INTEGER NOT NULL DEFAULT 0,
             create_datetime DATETIME NOT NULL,
             start_datetime DATETIME,
@@ -122,14 +122,11 @@ class DBtools:
             enhance BOOLEAN NOT NULL DEFAULT true,
             comment TEXT,
             FOREIGN KEY(client_id) REFERENCES client(id) ON DELETE CASCADE ON UPDATE CASCADE,
-            FOREIGN KEY(image_id) REFERENCES image(id) ON DELETE CASCADE ON UPDATE CASCADE,
-            FOREIGN KEY(video_id) REFERENCES video(id) ON DELETE CASCADE ON UPDATE CASCADE,
-            FOREIGN KEY(audio_id) REFERENCES audio(id) ON DELETE CASCADE ON UPDATE CASCADE,
-            UNIQUE KEY unique_item (client_id,image_id, video_id, audio_id, out_crf, enhance)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'''
+            UNIQUE KEY unique_item (image_id, video_id, audio_id, out_crf, enhance)
+             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'''
         tts_cache = '''CREATE TABLE IF NOT EXISTS tts_cache(
             id INTEGER PRIMARY KEY AUTO_INCREMENT,
-            filename VARCHAR(200) UNIQUE NOT NULL ,
+            filename VARCHAR(200) UNIQUE NOT NULL,
             tts_content LONGBLOB NOT NULL,
             platform ENUM('google', 'azure') NOT NULL,
             transform_text TEXT NOT NULL,
@@ -144,12 +141,15 @@ class DBtools:
             `id` INTEGER PRIMARY KEY AUTO_INCREMENT,
             `client_id` INTEGER NOT NULL,
             `name` VARCHAR(200) NOT NULL,
+            `display_name` VARCHAR(200) NOT NULL,
             `platform` ENUM('google', 'azure') NOT NULL,
             `lang` VARCHAR(10) NOT NULL,
             `voice` VARCHAR(30) NOT NULL,
+            `code` BLOB NOT NULL,
+            `gender` ENUM('male', 'female', 'unknown') DEFAULT 'unknown',
             `create_datetime` DATETIME NOT NULL,
-            `comment` TEXT ,
-            UNIQUE KEY `uniq_tts_sub` (client_id, name, platform, lang(10), voice(30)),
+            `comment` TEXT,
+            UNIQUE KEY `uniq_tts_sub` (client_id, code(1000)),
             FOREIGN KEY(client_id) REFERENCES client(id)
             ON DELETE CASCADE ON UPDATE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
@@ -157,13 +157,11 @@ class DBtools:
         processing_ticket = '''CREATE TABLE IF NOT EXISTS processing_ticket(
             id INTEGER PRIMARY KEY AUTO_INCREMENT,
             value CHAR(40) NOT NULL,
-            generate_job_id INTEGER,
-            FOREIGN KEY(generate_job_id) REFERENCES generate_job(id) ON DELETE CASCADE ON UPDATE CASCADE
+            generate_job_id INTEGER
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'''
 
         auth = '''
-            CREATE TABLE IF NOT EXISTS `auth` (
-            `id` INTEGER PRIMARY KEY AUTO_INCREMENT,
+            CREATE TABLE IF NOT EXISTS `auth` (`id` INTEGER PRIMARY KEY AUTO_INCREMENT,
             `client_id` INTEGER NOT NULL,
             `access_token` CHAR(32) NOT NULL,
             `refresh_token` CHAR(32) NOT NULL,
@@ -272,18 +270,35 @@ class DBtools:
 
     def get_job_join(self):
         connect, cursor = self.create_conn_cursor()
-        select_query = "SELECT gj.id,video.path video_path ,audio.path audio_path,video.id ,audio.id,gj.out_crf,\
-            gj.enhance,image.generate_image_content image_content,image.filename image_filename,\
-            video.filename video_filename,audio.filename audio_filename\
-            FROM generate_job as gj \
-            INNER JOIN  image ON gj.image_id =image.id\
-            INNER JOIN video ON gj.video_id=video.id \
-            INNER JOIN audio ON gj.audio_id=audio.id \
-            WHERE gj.status!='finished' ORDER BY gj.id ASC"
+        # select_query = "SELECT id,comment FROM generate_job WHERE status !='finished' AND status!='error'"
+        select_query = "SELECT id,comment FROM generate_job WHERE status NOT IN('finished','error') \
+            AND id NOT IN(SELECT IFNULL(generate_job_id,0) FROM processing_ticket) ORDER BY id ASC"
         cursor.execute(select_query)
         result = cursor.fetchone()
+        if result is not None:
+            select_query = "SELECT gj.id,video.path video_path ,audio.path audio_path,video.id ,audio.id,gj.out_crf,\
+                gj.enhance,image.generate_image_content image_content,image.filename image_filename,\
+                video.filename video_filename,audio.filename audio_filename ,gj.comment\
+                FROM generate_job as gj \
+                INNER JOIN  image ON gj.image_id =image.id\
+                INNER JOIN video ON gj.video_id=video.id \
+                INNER JOIN audio ON gj.audio_id=audio.id \
+                WHERE gj.id=%s ORDER BY gj.id ASC"
+            cursor.execute(select_query, result['id'])
+            result_all = cursor.fetchone()
+            if result_all is None:
+                self.update_job_error(
+                    result['id'], result['comment'] + 'image or audio is not exists', 'error')
+        else:
+            result_all = result
         self.close(connect, cursor)
-        return result
+        return result_all
+
+    def update_job_error(self, id, comment, status):
+        connect, cursor = self.create_conn_cursor()
+        update_query = 'UPDATE generate_job SET status=%s,comment=%s WHERE id=%s'
+        cursor.execute(update_query, (status, comment, id))
+        self.close(connect, cursor)
 
     def update_job_progress(self, id, status, progress):
         connect, cursor = self.create_conn_cursor()
@@ -324,5 +339,12 @@ class DBtools:
             self.close(connect, cursor)
             return False
 
+    def update_ticket(self, ticket_id):
+        connect, cursor = self.create_conn_cursor()
+        update_query = "UPDATE processing_ticket SET generate_job_id=%s WHERE id=%s"
+        cursor.execute(update_query, (None, ticket_id))
+        self.close(connect, cursor)
+
 
 dbtools = DBtools()
+# print(dbtools.get_job_join())

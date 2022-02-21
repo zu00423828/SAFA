@@ -58,7 +58,8 @@ def check(dir):
 
 def extract_landmark(video_path, out_path):
 
-    fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D)
+    fa = face_alignment.FaceAlignment(
+        face_alignment.LandmarksType._2D)
     video = cv2.VideoCapture(video_path)
     all_landmarks = []
     frame_count = int(video.get(7))
@@ -219,8 +220,9 @@ def video_gfpgan_process(origin_video_path, landmark_path, use_gfp=True, model_d
     out_video_path = '/tmp/paste_temp.mp4'
     h = int(full_video.get(4))
     w = int(full_video.get(3))
+    fps = full_video.get(5)
     out_video = cv2.VideoWriter(out_video_path, cv2.VideoWriter_fourcc(
-        *'XVID'), 30.0, (w, h))
+        *'XVID'), fps, (w, h))
     lb = create_lb(4)
     with open(landmark_path, 'rb') as f:
         source_landmark = pickle.load(f)
@@ -235,7 +237,8 @@ def video_gfpgan_process(origin_video_path, landmark_path, use_gfp=True, model_d
             if use_gfp:
                 _, _, enhance_img = restorer.enhance(
                     full_frame, has_aligned=False, only_center_face=False, paste_back=True)
-                enhance_img = cv2.resize(enhance_img, (256, 256))
+                enhance_img = cv2.resize(
+                    enhance_img, (full_frame.shape[1], full_frame.shape[0]))
             x1, x2, y1, y2 = quantize_position(0, w, 0, h, 4)
             mask = _cal_mouth_contour_mask(
                 source_landmark[i], y2, x2, None, 0.1)
@@ -310,7 +313,7 @@ def make_image_animation_dataflow(source_path, driving_origin_path, result_path,
     if use_crop:
         print('crop driving video', flush=True)
         driving_video_path = process_video(
-            driving_origin_path, '/tmp/driving.mp4',min_frames=15)
+            driving_origin_path, '/tmp/driving.mp4', min_frames=15)
         torch.cuda.empty_cache()
     else:
         driving_video_path = driving_origin_path
@@ -342,30 +345,20 @@ if __name__ == '__main__':
     # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/1.mp4',f'{root}/1_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=False)
     # concat_video(f'{root}/1_gfpgan.mp4',f'{root}/out/1.mp4','concat2.mp4')
 
-    root = '/home/yuan/hdd/safa_test/01_24'
-    make_image_animation_dataflow(
-        f'{root}/123.TIF', f'{root}/1.mp4', f'{root}/out/6.mp4', 'ckpt/', use_crop=True)
-    # make_image_animation_dataflow(f'{root}/0212.png',f'{root}/2.mp4',f'{root}/out/2.mp4','ckpt/',use_crop=True)
-    # make_image_animation_dataflow(f'{root}/0212.png',f'{root}/3.mp4',f'{root}/out/3.mp4','ckpt/',use_crop=True)
-    # make_image_animation_dataflow(f'{root}/0212.png',f'{root}/4.mp4',f'{root}/out/4.mp4','ckpt/',use_crop=True)
-    # make_image_animation_dataflow(f'{root}/0212.png',f'{root}/5.mp4',f'{root}/out/5.mp4','ckpt/',use_crop=True)
-    # make_image_animation_dataflow(f'{root}/EP010-18.png',f'{root}/2.mp4',f'{root}/out/2_3.mp4','ckpt/final_3DV.tar',use_crop=False)
-    # make_image_animation_dataflow(f'{root}/EP010-18.png',f'{root}/3.mp4',f'{root}/out/3_3.mp4','ckpt/final_3DV.tar',use_crop=False)
-    # make_image_animation_dataflow(f'{root}/EP010-18.png',f'{root}/4.mp4',f'{root}/out/4_3.mp4','ckpt/final_3DV.tar',use_crop=False)
-
-    # root='/home/yuan/hdd/safa_test/01_18_1/woman'
-    # make_image_animation_dataflow(f'{root}/EP007-02new.jpg',f'{root}/1.mp4',f'{root}/out1/1_1.mp4','ckpt/final_3DV.tar',use_crop=False)
-    # make_image_animation_dataflow(f'{root}/EP007-02new.jpg',f'{root}/2.mp4',f'{root}/out1/2_1.mp4','ckpt/final_3DV.tar',use_crop=False)
-    # make_image_animation_dataflow(f'{root}/EP007-02new.jpg',f'{root}/3.mp4',f'{root}/out1/3_1.mp4','ckpt/final_3DV.tar',use_crop=False)
-    # make_image_animation_dataflow(f'{root}/EP007-02new.jpg',f'{root}/4.mp4',f'{root}/out1/4_1.mp4','ckpt/final_3DV.tar',use_crop=False)
-
-    # root='/home/yuan/hdd/safa_test/01_18_1/woman2'
-    # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/1.mp4',f'{root}/out1/1_2.mp4','ckpt/final_3DV.tar',use_crop=False)
-    # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/2.mp4',f'{root}/out1/2_2.mp4','ckpt/final_3DV.tar',use_crop=False)
-    # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/3.mp4',f'{root}/out1/3_2.mp4','ckpt/final_3DV.tar',use_crop=False)
-    # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/4.mp4',f'{root}/out1/4_2.mp4','ckpt/final_3DV.tar',use_crop=False)
-
-
+    root = '/home/yuan/hdd/safa_test/02_19/test'
+    driving_video_path = os.path.join(
+        root, 'driving_man-female-tw-long-120k-0-.mp4')
+    from pathlib import Path
+    from glob import glob
+    # glob(f'{root}/*.png'):
+    for image_path in glob(f'{root}/*.png'):
+        # image_input = os.path.join(root, image_path)
+        image_input = image_path
+        os.makedirs(os.path.join(root, 'out'), exist_ok=True)
+        out_path = os.path.join(root, 'out', 'result_' +
+                                Path(image_input).stem+'.mp4')
+        make_image_animation_dataflow(
+            image_input, driving_video_path, out_path, 'ckpt/', use_crop=True)
 # ffmpeg -i test/input1.mp4  -filter:v "crop=476:476:733:151, scale=256:256" crop.mp4
 # x 733:1209
 # y 151:627

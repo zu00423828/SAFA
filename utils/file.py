@@ -37,7 +37,7 @@ def get_file_md5(inputfile):
 
 def add_video2db(client_id, filepath, comment):
     filename = Path(filepath).stem
-    filepath_gcs =os.path.join('video', os.path.basename(filepath))
+    filepath_gcs = os.path.join('video', os.path.basename(filepath))
     upload_datetime = datetime.now()
     expiration_datetime = None
     size_mb = get_size_mb(filepath)
@@ -46,9 +46,9 @@ def add_video2db(client_id, filepath, comment):
     video_md5 = get_file_md5(filepath)
     data = (None, client_id, filename, filepath_gcs, video_md5, upload_datetime,
             expiration_datetime, size_mb, duration, fps, comment)
-    if dbtools.check_md5('video',video_md5) is None:
+    if dbtools.check_md5('video', video_md5) is None:
         dbtools.insert_video(data)
-        upload_to_gcs(filepath,filepath_gcs)
+        upload_to_gcs(filepath, filepath_gcs)
 
 
 def add_audio2db(client_id, filepath, comment):
@@ -59,29 +59,34 @@ def add_audio2db(client_id, filepath, comment):
     size_mb = get_size_mb(filepath)
     duration = get_duration(filepath)
     audio_md5 = get_file_md5(filepath)
-    data = (None, client_id,None, filename, filepath_gcs, audio_md5, upload_datetime,
+    data = (None, client_id, None, filename, filepath_gcs, audio_md5, upload_datetime,
             expiration_datetime, size_mb, duration, comment)
-    if dbtools.check_md5('audio',audio_md5) is None:
+    if dbtools.check_md5('audio', audio_md5) is None:
         dbtools.insert_audio(data)
         upload_to_gcs(filepath, filepath_gcs)
 
 
-def add_image2db(client_id, filepath,gender, comment):
+def add_image2db(client_id, filepath, filepath2, gender, comment):
     filename = Path(filepath).stem
     with open(filepath, 'rb') as f:
         content = f.read()
+    with open(filepath2, 'rb') as f:
+        display_content = f.read()
     md5 = get_file_md5(filepath)
     upload_datetime = datetime.now()
     size_mb = get_size_mb(filepath)
-    data = (None, client_id, gender,filename,content, content,
+    data = (None, client_id, gender, filename, display_content, content,
             md5, upload_datetime, size_mb, comment)
     dbtools.insert_image(data)
 
 
-def add_job(client_id,image_id, video_id, audio_id, out_crf, enhance, comment=''):
-    data = (None,client_id, image_id, video_id, audio_id, None, None, 'init',
+def add_job(client_id, image_id, video_id, audio_id, out_crf, enhance, comment=''):
+    data = (None, client_id, image_id, video_id, audio_id, None, None, 'init',
             0, datetime.now(), None, None, out_crf, enhance, comment)
-    dbtools.insert_job(data)
+    try:
+        dbtools.insert_job(data)
+    except Exception as e:
+        print(e)
 
 
 def add_client(account):

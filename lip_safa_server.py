@@ -8,18 +8,22 @@ import os
 from pathlib import Path
 from enum import Enum
 from utils.mysql_dbtool import dbtools
-from utils.file import add_client,add_video2db,add_image2db
+from utils.file import add_client, add_video2db, add_image2db
 from utils.gcs_tool import upload_to_gcs, download_gcs
 
+
 class Gender(Enum):
-    male='male'
-    female='female'
+    male = 'male'
+    female = 'female'
+
+
 class Status(Enum):
     init = 'init'
     preprocessing = 'preprocessing'
     lipsyncing = 'lipsyncing'
     image_animating = 'image-animating'
     finished = 'finished'
+    error = 'error'
 # ENUM('init','preprocessing','lipsyncing','image-animating','finished')
 
 
@@ -40,7 +44,7 @@ def check_audio(gcs_path, audio_dir):
 def worker(data_dir):
     FACE_DETECT_BATCH_SIZE = 4 if os.environ.get(
         "FACE_DETECT_BATCH_SIZE") is None else int(os.environ.get("FACE_DETECT_BATCH_SIZE"))
-    GENERATE_BATCH_SIZE = 32 if os.environ.get(
+    GENERATE_BATCH_SIZE = 1 if os.environ.get(
         "GENERATE_BATCH_SIZE") is None else int(os.environ.get("GENERATE_BATCH_SIZE"))
 
     preprocess_dir = f'{data_dir}/preprocess'
@@ -50,34 +54,51 @@ def worker(data_dir):
     os.makedirs(preprocess_dir, exist_ok=True)
     os.makedirs(video_dir, exist_ok=True)
     os.makedirs(audio_dir, exist_ok=True)
-    print('server init',flush=True)
+    print('server init', flush=True)
     # init video2 db and upload gcs#
     account = 'share'
     try:
         add_client(account)
     except Exception as e:
-        print(e)
+        print(e, flush=True)
     account = 'share'
     client_id = dbtools.get_data(
         'client', f"account='{account}'", all=False)['id']
     add_video2db(client_id, 'mock_dir/driving_man.mp4', '')
     add_video2db(client_id, 'mock_dir/driving_woman.mp4', '')
-    add_image2db(client_id, 'mock_dir/0212.png',Gender.female.value, '')
-    add_image2db(client_id, 'mock_dir/EP007-02new.jpg',Gender.female.value, '')
-    add_image2db(client_id, 'mock_dir/EP010-08.jpg',Gender.female.value, '')
-    add_image2db(client_id, 'mock_dir/EP010-18.png',Gender.male.value, '')
+
+    # add_image2db(client_id, 'mock_dir/0212.png', Gender.female.value, '')
+    # # add_image2db(client_id, 'mock_dir/EP007-02new.jpg',
+    # #              Gender.female.value, '')
+    # add_image2db(client_id, 'mock_dir/EP010-08.jpg', Gender.female.value, '')
+    # add_image2db(client_id, 'mock_dir/EP010-18.png', Gender.male.value, '')
+    # add_image2db(client_id, 'mock_dir/0050.png', Gender.female.value, '')
+
+    # add_image2db(client_id, 'mock_dir/new/01.jpg', Gender.female.value, '')
+    # add_image2db(client_id, 'mock_dir/new/02.jpg', Gender.female.value, '')
+    # add_image2db(client_id, 'mock_dir/new/03.jpg', Gender.female.value, '')
+    # add_image2db(client_id, 'mock_dir/new/04.jpg', Gender.male.value, '')
+    # add_image2db(client_id, 'mock_dir/new/05.jpg', Gender.female.value, '')
+    # add_image2db(client_id, 'mock_dir/new/06.jpg', Gender.female.value, '')
+    # add_image2db(client_id, 'mock_dir/new/07.jpg', Gender.female.value, '')
+    # add_image2db(client_id, 'mock_dir/new/08.jpg', Gender.female.value, '')
+    # add_image2db(client_id, 'mock_dir/new/09.jpg', Gender.female.value, '')
+    # add_image2db(client_id, 'mock_dir/new/10.jpg', Gender.female.value, '')
     with dbtools.session() as sess:
+        print('ticket_id:', sess.processing_ticket_id, flush=True)
         while True:
-            time.sleep(30)
+            job = None
             try:
                 job = dbtools.get_job_join()
                 if job is not None:
                     st = time.time()
-                    if dbtools.set_ticket_job(sess.processing_ticket_id, job['id']):
+                    if dbtools.set_ticket_job(sess.processing_ticket_id, job['id']) == True:
+                        print('ticket_id: ', sess.processing_ticket_id,
+                              ' job_id: ', job['id'], flush=True)
                         tempdir = ".".join(os.path.basename(
                             job["video_path"]).split(".")[:-1])
                         dumpdir = os.path.join(preprocess_dir, tempdir)
-                        face_config = os.path.join(dumpdir, 'face.tsv')
+                        face_config = os.path.join(dumpdir, 'face.pkl')
                         dbtools.update_job_process_datetime(job['id'], True)
                         video_path = check_video(job['video_path'], video_dir)
                         if not os.path.exists(face_config):
@@ -85,13 +106,13 @@ def worker(data_dir):
                             dbtools.update_job_progress(
                                 job['id'], Status.preprocessing.value, 25)
                             face_config = detect_face_and_dump_from_video(
-                                video_path, dumpdir, 'cuda', 96, face_detect_batch_size=FACE_DETECT_BATCH_SIZE, smooth=True)
+                                video_path, dumpdir)
                             torch.cuda.empty_cache()
                         audio_path = check_audio(job['audio_path'], audio_dir)
                         dbtools.update_job_progress(
                             job['id'], Status.lipsyncing.value, 50)
                         print('lipsyncing', flush=True)
-                        generate_video(face_config, audio_path, 'ckpt/wav2lip_gan.pth',
+                        generate_video(face_config, audio_path, os.environ['LIP_MODEL_PATH'],
                                        '/tmp/lip.mp4', batch_size=GENERATE_BATCH_SIZE)
                         # image_name = Path(job['image_filename']).stem
                         # video_name = Path(job['video_filename']).stem
@@ -107,20 +128,28 @@ def worker(data_dir):
                         make_image_animation_dataflow(
                             image_content, '/tmp/lip.mp4', result_path, 'ckpt', crf=job['out_crf'], use_crop=True, use_gfp=job['enhance'])
                         torch.cuda.empty_cache()
-                        print('job finish', flush=True)
-                        dbtools.update_job_progress(
-                            job['id'], Status.finished.value, 100)
                         dbtools.update_job_result(
                             job['id'], result_filename, gcs_path)
-                        dbtools.update_job_process_datetime(job['id'], False)
                         upload_to_gcs(result_path, gcs_path)
                         et = time.time()
                         cost_time = f'{et-st:0.2f}'
+                        dbtools.update_job_process_datetime(job['id'], False)
+                        dbtools.update_job_progress(
+                            job['id'], Status.finished.value, 100)
+                        dbtools.update_ticket(sess.processing_ticket_id)
+                        print(f"job finish {job['id']}", flush=True)
                         print(cost_time, flush=True)
                     else:
                         continue
+                else:
+                    time.sleep(10)
             except Exception as e:
-                print(e)
+                import traceback
+                traceback.print_exc()
+                print(e, flush=True)
+                comment = job['comment']+str(e)
+                dbtools.update_job_error(
+                    job['id'], comment, status=Status.error.value)
 
 
 if __name__ == '__main__':
