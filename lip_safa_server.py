@@ -126,7 +126,7 @@ def worker(data_dir):
                         dbtools.update_job_progress(
                             job['id'], Status.image_animating.value, 75)
                         make_image_animation_dataflow(
-                            image_content, '/tmp/lip.mp4', result_path, 'ckpt', crf=job['out_crf'], use_crop=True, use_gfp=job['enhance'])
+                            image_content, '/tmp/lip.mp4', result_path, 'ckpt', crf=job['out_crf'], use_crop=True, use_gfp=job['enhance'], face_data=face_config)
                         torch.cuda.empty_cache()
                         dbtools.update_job_result(
                             job['id'], result_filename, gcs_path)
@@ -150,6 +150,7 @@ def worker(data_dir):
                 comment = job['comment']+str(e)
                 dbtools.update_job_error(
                     job['id'], comment, status=Status.error.value)
+                dbtools.update_ticket(sess.processing_ticket_id)
 
 
 if __name__ == '__main__':

@@ -308,12 +308,12 @@ def make_animation_dataflow(source_origin_path, driving_origin_path, temp_dir, r
         subprocess.call(command, shell=True)
 
 
-def make_image_animation_dataflow(source_path, driving_origin_path, result_path, model_dir, use_crop=False, crf=0, use_gfp=True,):
+def make_image_animation_dataflow(source_path, driving_origin_path, result_path, model_dir, use_crop=False, crf=0, use_gfp=True, face_data=None):
     config_path = f"{os.path.split(os.path.realpath(__file__))[0]}/config/end2end.yaml"
     if use_crop:
         print('crop driving video', flush=True)
         driving_video_path = process_video(
-            driving_origin_path, '/tmp/driving.mp4', min_frames=15)
+            driving_origin_path, '/tmp/driving.mp4', min_frames=15, face_data=face_data)
         torch.cuda.empty_cache()
     else:
         driving_video_path = driving_origin_path
@@ -362,7 +362,7 @@ if __name__ == '__main__':
     driving_video = '/home/yuan/share/lip.mp4'
     img = '/home/yuan/hdd/safa_test/02_21/0221_2.jpg'
     make_image_animation_dataflow(
-        img, driving_video, '/tmp/out_new.mp4', 'ckpt/', use_crop=True)
+        img, driving_video, '/tmp/finish.mp4', 'ckpt/', use_crop=True, face_data='datadir/preprocess/driving_woman/face.pkl')
     # ffmpeg -i test/input1.mp4  -filter:v "crop=476:476:733:151, scale=256:256" crop.mp4
     # x 733:1209
     # y 151:627

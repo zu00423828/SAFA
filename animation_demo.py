@@ -254,7 +254,7 @@ def make_animation(source_image, driving_video,
 
 def make_animation_new(source_image, driving_reader,
                        generator, kp_detector, tdmm, with_eye=False,
-                       relative=True, adapt_movement_scale=True, cpu=False, result_video_path='/tmp/safa.mp4', fps=30, duration=100):
+                       relative=True, adapt_movement_scale=True, cpu=False, result_video_path='/tmp/temp.mp4', fps=30, duration=100):
     writer = imageio.get_writer(result_video_path, fps=fps)
 
     def batch_orth_proj(X, camera):
@@ -430,10 +430,9 @@ def create_image_animation(source_image_pth, driving_video_pth, result_video_pth
         config_path=config, checkpoint_path=checkpoint, cpu=False)
     make_animation_new(source_image, reader,
                        generator, kp_detector, tdmm, with_eye=with_eye,
-                       relative=relative, adapt_movement_scale=adapt_scale, cpu=False, fps=fps, duration=duration)
+                       relative=relative, adapt_movement_scale=adapt_scale, cpu=False, result_video_path=result_video_pth, fps=fps, duration=duration)
 
     return result_video_pth
-
 
     # command=f"ffmpeg -y -i {driving_video_pth} temp.wav "
     # subprocess.call(command,shell=True)

@@ -9,6 +9,7 @@ import os
 import imageio
 import numpy as np
 import warnings
+import pandas as pd
 warnings.filterwarnings("ignore")
 
 
@@ -87,20 +88,29 @@ def compute_bbox_trajectories(trajectories, fps, frame_shape, inp, image_shape, 
     return commands
 
 
-def process_video(inp, output, image_shape=(256, 256), increase=0.1, iou_with_initial=0.25, min_frames=150, device='cuda'):
-    fa = face_alignment.FaceAlignment(
-        face_alignment.LandmarksType._2D, flip_input=False, device=device)
+def process_video(inp, output, image_shape=(256, 256), increase=0.1, iou_with_initial=0.25, min_frames=150, device='cuda', face_data=None):
     video = imageio.get_reader(inp)
-
+    if face_data is None:
+        fa = face_alignment.FaceAlignment(
+            face_alignment.LandmarksType._2D, flip_input=False, device=device)
+    else:
+        df = pd.read_pickle(face_data)
+        bbox_list = df['bbox']
     trajectories = []
     previous_frame = None
     fps = video.get_meta_data()['fps']
     duration = video.get_meta_data()['duration']
     commands = []
+    # min_frames = min(int(fps*duration) // 2, len(bbox_list)//2)
     try:
         for i, frame in enumerate(tqdm(video, total=int(fps*duration))):
             frame_shape = frame.shape
-            bboxes = extract_bbox(frame, fa)
+            if face_data is None:
+                bboxes = extract_bbox(frame, fa)
+            else:
+                if i >= len(bbox_list):
+                    break
+                bboxes = [bbox_list[i]]
             # For each trajectory check the criterion
             not_valid_trajectories = []
             valid_trajectories = []
@@ -144,7 +154,6 @@ def process_video(inp, output, image_shape=(256, 256), increase=0.1, iou_with_in
 
     except IndexError as e:
         raise (e)
-
     commands += compute_bbox_trajectories(
         trajectories, fps, frame_shape, inp, image_shape, min_frames, increase, output)
     command = commands[0]
@@ -155,7 +164,7 @@ def process_video(inp, output, image_shape=(256, 256), increase=0.1, iou_with_in
 
 if __name__ == "__main__":
     inp = '/home/yuan/repo/my_safa/mock_dir/driving_man.mp4'
-    output = '/home/yuan/repo/Talking-Face_PC-AVS/misc/test_driving_increase-01.mp4'
+    output = '/tmp/driving.mp4'
     commands = process_video(
         inp, output, image_shape=(224, 224), increase=-0.1)
     # for command in commands:
