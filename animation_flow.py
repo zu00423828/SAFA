@@ -345,20 +345,24 @@ if __name__ == '__main__':
     # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/1.mp4',f'{root}/1_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=False)
     # concat_video(f'{root}/1_gfpgan.mp4',f'{root}/out/1.mp4','concat2.mp4')
 
-    root = '/home/yuan/hdd/safa_test/02_19/test'
-    driving_video_path = os.path.join(
-        root, 'driving_man-female-tw-long-120k-0-.mp4')
-    from pathlib import Path
-    from glob import glob
-    # glob(f'{root}/*.png'):
-    for image_path in glob(f'{root}/*.png'):
-        # image_input = os.path.join(root, image_path)
-        image_input = image_path
-        os.makedirs(os.path.join(root, 'out'), exist_ok=True)
-        out_path = os.path.join(root, 'out', 'result_' +
-                                Path(image_input).stem+'.mp4')
-        make_image_animation_dataflow(
-            image_input, driving_video_path, out_path, 'ckpt/', use_crop=True)
-# ffmpeg -i test/input1.mp4  -filter:v "crop=476:476:733:151, scale=256:256" crop.mp4
-# x 733:1209
-# y 151:627
+    # root = '/home/yuan/hdd/safa_test/02_19/test'
+    # driving_video_path = os.path.join(
+    #     root, 'driving_man-female-tw-long-120k-0-.mp4')
+    # from pathlib import Path
+    # from glob import glob
+    # # glob(f'{root}/*.png'):
+    # for image_path in glob(f'{root}/*.png'):
+    #     # image_input = os.path.join(root, image_path)
+    #     image_input = image_path
+    #     os.makedirs(os.path.join(root, 'out'), exist_ok=True)
+    #     out_path = os.path.join(root, 'out', 'result_' +
+    #                             Path(image_input).stem+'.mp4')
+    #     make_image_animation_dataflow(
+    #         image_input, driving_video_path, out_path, 'ckpt/', use_crop=True)
+    driving_video = '/home/yuan/share/lip.mp4'
+    img = '/home/yuan/hdd/safa_test/02_21/0221_2.jpg'
+    make_image_animation_dataflow(
+        img, driving_video, '/tmp/out_new.mp4', 'ckpt/', use_crop=True)
+    # ffmpeg -i test/input1.mp4  -filter:v "crop=476:476:733:151, scale=256:256" crop.mp4
+    # x 733:1209
+    # y 151:627
