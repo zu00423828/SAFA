@@ -13,13 +13,15 @@ import subprocess
 from tqdm import trange
 from utils.crop_video import process_video
 from gfpgan import GFPGANer
+from gpen.face_enhancement import FaceEnhancement
 
 
 def concat_video(left, right, out_path):
     video1 = cv2.VideoCapture(left)
     video2 = cv2.VideoCapture(right)
+    fps = video1.get(5)
     out = cv2.VideoWriter(
-        out_path, cv2.VideoWriter_fourcc(*'XVID'), 30.0, (512, 256))
+        out_path, cv2.VideoWriter_fourcc(*'XVID'), fps, (512, 256))
     while video1.isOpened():
         ret, frame1 = video1.read()
         if not ret:
@@ -263,6 +265,26 @@ def video_gfpgan_process(origin_video_path, landmark_path, use_gfp=True, model_d
     return out_video_path
 
 
+def video_gpen_process(origin_video_path, model_dir):
+    processer = FaceEnhancement(base_dir=model_dir, in_size=512, model='GPEN-BFR-512', sr_scale=2,
+                                use_sr=True, sr_model='realesrnet')
+    full_video = cv2.VideoCapture(origin_video_path)
+    out_video_path = '/tmp/paste_temp.mp4'
+    h = int(full_video.get(4))
+    w = int(full_video.get(3))
+    fps = full_video.get(5)
+    frame_count = int(full_video.get(7))
+    out_video = cv2.VideoWriter(out_video_path, cv2.VideoWriter_fourcc(
+        *'XVID'), fps, (w, h))
+    for _ in trange(frame_count):
+        _, frame = full_video.read()
+        img_out, orig_faces, enhanced_faces = processer.process(
+            frame, aligned=False)
+        img_out = cv2.resize(img_out, (256, 256))
+        out_video.write(img_out)
+    return out_video_path
+
+
 def make_animation_dataflow(source_origin_path, driving_origin_path, temp_dir, result_path, model_path, config_path=None, add_audo=False):
     '''
     參數  
@@ -317,6 +339,7 @@ def make_image_animation_dataflow(source_path, driving_origin_path, result_path,
         torch.cuda.empty_cache()
     else:
         driving_video_path = driving_origin_path
+
     print('create animation', flush=True)
     safa_model_path = f'{model_dir}/final_3DV.tar'
     safa_video = create_image_animation(source_path, driving_video_path, '/tmp/temp.mp4', config_path,
@@ -326,8 +349,9 @@ def make_image_animation_dataflow(source_path, driving_origin_path, result_path,
     ldmk_path = extract_landmark(safa_video, '/tmp/ldmk.pkl')
     torch.cuda.empty_cache()
     print('gfp process', flush=True)
-    paste_video_path = video_gfpgan_process(
-        safa_video, ldmk_path, use_gfp, model_dir=model_dir)
+    # paste_video_path = video_gfpgan_process(
+    #     safa_video, ldmk_path, use_gfp, model_dir=model_dir)
+    paste_video_path = video_gpen_process(safa_video, model_dir)
     command = f"ffmpeg -y -i {driving_video_path} /tmp/temp.wav "
     subprocess.call(command, shell=True)
     # -preset veryslow
@@ -345,24 +369,27 @@ if __name__ == '__main__':
     # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/1.mp4',f'{root}/1_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=False)
     # concat_video(f'{root}/1_gfpgan.mp4',f'{root}/out/1.mp4','concat2.mp4')
 
-    # root = '/home/yuan/hdd/safa_test/02_19/test'
-    # driving_video_path = os.path.join(
-    #     root, 'driving_man-female-tw-long-120k-0-.mp4')
-    # from pathlib import Path
-    # from glob import glob
-    # # glob(f'{root}/*.png'):
-    # for image_path in glob(f'{root}/*.png'):
-    #     # image_input = os.path.join(root, image_path)
-    #     image_input = image_path
-    #     os.makedirs(os.path.join(root, 'out'), exist_ok=True)
-    #     out_path = os.path.join(root, 'out', 'result_' +
-    #                             Path(image_input).stem+'.mp4')
-    #     make_image_animation_dataflow(
-    #         image_input, driving_video_path, out_path, 'ckpt/', use_crop=True)
-    driving_video = '/home/yuan/share/lip.mp4'
-    img = '/home/yuan/hdd/safa_test/02_21/0221_2.jpg'
-    make_image_animation_dataflow(
-        img, driving_video, '/tmp/finish.mp4', 'ckpt/', use_crop=True, face_data='datadir/preprocess/driving_woman/face.pkl')
+    root = '/home/yuan/hdd/04_13'
+    driving_video_path = os.path.join(
+        root, 'clip.mp4')
+    from pathlib import Path
+    from glob import glob
+    # save_dir = os.path.join(root, 'yellow_out1')
+    # for image_path in glob(f'{root}/yellow_new/*'):
+    for image_path in sorted(glob(f'{root}/*/*g')):
+        # image_input = os.path.join(root, image_path)
+        image_input = image_path
+        save_dir = os.path.join(root, Path(
+            image_path).parent.name+'_out_fixed')
+        os.makedirs(save_dir, exist_ok=True)
+
+        out_path = os.path.join(save_dir, 'result_' +
+                                Path(image_input).stem+'.mp4')
+        if os.path.exists(out_path):
+            continue
+        make_image_animation_dataflow(
+            image_input, driving_video_path, out_path, 'ckpt/', use_crop=True, face_data=os.path.join("datadir/preprocess/driving_woman/face.pkl"))
+
     # ffmpeg -i test/input1.mp4  -filter:v "crop=476:476:733:151, scale=256:256" crop.mp4
     # x 733:1209
     # y 151:627
