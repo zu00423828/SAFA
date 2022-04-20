@@ -13,3 +13,6 @@ log
 *.png
 *.wav
 *.pkl
+*.wav
+*.mp3
+*.ogg

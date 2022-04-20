@@ -1,0 +1,7 @@
+log/
+asserts/
+mockdir/
+datadir/audio/
+temp/
+# .git
+pytorch3d/
