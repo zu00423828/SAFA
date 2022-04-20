@@ -265,11 +265,10 @@ def video_gfpgan_process(origin_video_path, landmark_path, use_gfp=True, model_d
     return out_video_path
 
 
-def video_gpen_process(origin_video_path, model_dir):
+def video_gpen_process(origin_video_path, model_dir, out_video_path='/tmp/paste_temp.mp4'):
     processer = FaceEnhancement(base_dir=model_dir, in_size=512, model='GPEN-BFR-512', sr_scale=2,
                                 use_sr=True, sr_model='realesrnet')
     full_video = cv2.VideoCapture(origin_video_path)
-    out_video_path = '/tmp/paste_temp.mp4'
     h = int(full_video.get(4))
     w = int(full_video.get(3))
     fps = full_video.get(5)
@@ -339,7 +338,10 @@ def make_image_animation_dataflow(source_path, driving_origin_path, result_path,
         torch.cuda.empty_cache()
     else:
         driving_video_path = driving_origin_path
-
+    command = f"ffmpeg -y -i {driving_video_path} /tmp/temp.wav "
+    subprocess.call(command, shell=True)
+    # driving_video_path = video_gpen_process(
+    #     driving_video_path, model_dir, out_video_path='/tmp/driving_enhace.mp4')
     print('create animation', flush=True)
     safa_model_path = f'{model_dir}/final_3DV.tar'
     safa_video = create_image_animation(source_path, driving_video_path, '/tmp/temp.mp4', config_path,
@@ -352,8 +354,6 @@ def make_image_animation_dataflow(source_path, driving_origin_path, result_path,
     # paste_video_path = video_gfpgan_process(
     #     safa_video, ldmk_path, use_gfp, model_dir=model_dir)
     paste_video_path = video_gpen_process(safa_video, model_dir)
-    command = f"ffmpeg -y -i {driving_video_path} /tmp/temp.wav "
-    subprocess.call(command, shell=True)
     # -preset veryslow
     command = f"ffmpeg -y -i {paste_video_path} -i /tmp/temp.wav  -crf  {crf} -vcodec h264  {result_path} "
     subprocess.call(command, shell=True)
@@ -369,18 +369,18 @@ if __name__ == '__main__':
     # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/1.mp4',f'{root}/1_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=False)
     # concat_video(f'{root}/1_gfpgan.mp4',f'{root}/out/1.mp4','concat2.mp4')
 
-    root = '/home/yuan/hdd/04_13'
+    root = '/home/yuan/hdd/04_20'
     driving_video_path = os.path.join(
-        root, 'clip.mp4')
+        root, 'lip_woman.mp4')
     from pathlib import Path
     from glob import glob
     # save_dir = os.path.join(root, 'yellow_out1')
     # for image_path in glob(f'{root}/yellow_new/*'):
-    for image_path in sorted(glob(f'{root}/*/*g')):
+    for image_path in sorted(glob(f'{root}/woman/*g')):
         # image_input = os.path.join(root, image_path)
         image_input = image_path
         save_dir = os.path.join(root, Path(
-            image_path).parent.name+'_out_fixed')
+            image_path).parent.name+'_out')
         os.makedirs(save_dir, exist_ok=True)
 
         out_path = os.path.join(save_dir, 'result_' +
