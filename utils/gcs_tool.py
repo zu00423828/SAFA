@@ -13,6 +13,11 @@ def upload_to_gcs(path, gcs_path):
     blob.upload_from_filename(path)  # local path
 
 
+def blob_exists(filename):
+    blob = bucket.blob(filename)
+    return blob.exists()
+
+
 def get_blob_list():
     # bucket = storage_client.get_bucket(bucket_name)
     for blob in bucket.list_blobs():

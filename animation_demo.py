@@ -37,7 +37,7 @@ def img_color_resize(img):
 
 
 def load_checkpoints(config_path, checkpoint_path, cpu=False):
-
+    device = torch.device('cpu' if cpu else 'cuda')
     with open(config_path) as f:
         config = yaml.load(f, yaml.FullLoader)
 
@@ -46,16 +46,10 @@ def load_checkpoints(config_path, checkpoint_path, cpu=False):
     kp_detector = KPDetector(**config['model_params']['kp_detector_params'],
                              **config['model_params']['common_params'])
     tdmm = TDMMEstimator()
-
-    if cpu:
-        checkpoint = torch.load(
-            checkpoint_path, map_location=torch.device('cpu'))
-    else:
-        checkpoint = torch.load(checkpoint_path)
-        generator.cuda()
-        kp_detector.cuda()
-        tdmm.cuda()
-
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+    generator = generator.to(device)
+    kp_detector = kp_detector.to(device)
+    tdmm = tdmm.to(device)
     generator.load_state_dict(checkpoint['generator'])
     kp_detector.load_state_dict(checkpoint['kp_detector'])
     tdmm.load_state_dict(checkpoint['tdmm'])
@@ -256,6 +250,7 @@ def make_animation_new(source_image, driving_reader,
                        generator, kp_detector, tdmm, with_eye=False,
                        relative=True, adapt_movement_scale=True, cpu=False, result_video_path='/tmp/temp.mp4', fps=30, duration=100):
     writer = imageio.get_writer(result_video_path, fps=fps)
+    device = torch.device('cpu' if cpu else 'cuda')
 
     def batch_orth_proj(X, camera):
         camera = camera.clone().view(-1, 1, 3)
@@ -268,8 +263,8 @@ def make_animation_new(source_image, driving_reader,
     with torch.no_grad():
         source = torch.tensor(source_image[np.newaxis].astype(
             np.float32)).permute(0, 3, 1, 2)
-        if not cpu:
-            source = source.cuda()
+
+        source = source.to(device)
         kp_source = kp_detector(source)
         source_codedict = tdmm.encode(source)
         source_verts, source_transformed_verts, _ = tdmm.decode_flame(
@@ -282,12 +277,11 @@ def make_animation_new(source_image, driving_reader,
                 frame = resize(frame, (256, 256))[..., :3]
                 driving_frame = torch.tensor(frame[np.newaxis].astype(
                     np.float32)).permute(0, 3, 1, 2)
+                driving_frame = driving_frame.to(device)
                 if driving_initial is None:
-                    driving_initial = driving_frame.clone().cuda()
+                    driving_initial = driving_frame.clone()
                     kp_driving_initial = kp_detector(driving_initial)
                     driving_init_codedict = tdmm.encode(driving_initial)
-                if not cpu:
-                    driving_frame = driving_frame.cuda()
 
                 kp_driving = kp_detector(driving_frame)
                 driving_codedict = tdmm.encode(driving_frame)

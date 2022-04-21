@@ -371,12 +371,12 @@ if __name__ == '__main__':
 
     root = '/home/yuan/hdd/04_20'
     driving_video_path = os.path.join(
-        root, 'lip_woman.mp4')
+        root, 'lip_man.mp4')
     from pathlib import Path
     from glob import glob
     # save_dir = os.path.join(root, 'yellow_out1')
     # for image_path in glob(f'{root}/yellow_new/*'):
-    for image_path in sorted(glob(f'{root}/woman/*g')):
+    for image_path in sorted(glob(f'{root}/man/*g')):
         # image_input = os.path.join(root, image_path)
         image_input = image_path
         save_dir = os.path.join(root, Path(
