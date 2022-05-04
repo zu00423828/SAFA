@@ -212,7 +212,7 @@ def paste_origin_video(source_origin_path, safa_video_path, temp_dir, landmark_p
 def video_gfpgan_process(origin_video_path, landmark_path, use_gfp=True, model_dir='ckpt'):
     if use_gfp:
         restorer = GFPGANer(
-            model_path=f'{model_dir}/GFPGANCleanv1-NoCE-C2.pth',
+            model_path=f'{model_dir}/GFPGANv1.3.pth',
             upscale=2,
             arch='clean',
             channel_multiplier=2,
@@ -265,9 +265,39 @@ def video_gfpgan_process(origin_video_path, landmark_path, use_gfp=True, model_d
     return out_video_path
 
 
+def blur_video_mouth(video_path, pkl, out_path, kernel=7):
+    f = open(pkl, 'rb')
+    landmarks = pickle.load(f)
+    video = cv2.VideoCapture(video_path)
+    h = int(video.get(4))
+    w = int(video.get(3))
+    fps = video.get(5)
+    out_video = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(
+        *'XVID'), fps, (w, h))
+    lb = create_lb(4)
+    for i in trange(len(landmarks)):
+        _, frame = video.read()
+        x1, x2, y1, y2 = quantize_position(0, w, 0, h, 4)
+        mask = _cal_mouth_contour_mask(landmarks[i], h, w, None, 0.1)
+        mouth = frame.copy()
+        blur_mouth = cv2.GaussianBlur(mouth, (kernel, kernel), 0)  # 9*9
+        mask_t = torch.tensor(
+            mask, dtype=torch.float32).permute(2, 0, 1).unsqueeze(0)
+        moth_t = torch.tensor(blur_mouth/255, dtype=torch.float32).permute(
+            2, 0, 1).unsqueeze(0)
+        origin_t = torch.tensor(frame/255, dtype=torch.float32).permute(
+            2, 0, 1).unsqueeze(0)
+        # print(origin_t.shape, moth_t.shape, mask_t.shape)
+        out = lb(origin_t, moth_t, mask_t, y2, x2)
+        full_out = (out[0][:, :h, :w].permute(
+            1, 2, 0)*255).cpu().numpy().astype(np.uint8)
+        out_video.write(full_out)
+    return out_path
+
+
 def video_gpen_process(origin_video_path, model_dir, out_video_path='/tmp/paste_temp.mp4'):
     processer = FaceEnhancement(base_dir=model_dir, in_size=512, model='GPEN-BFR-512', sr_scale=2,
-                                use_sr=True, sr_model='realesrnet')
+                                use_sr=False, sr_model=None)
     full_video = cv2.VideoCapture(origin_video_path)
     h = int(full_video.get(4))
     w = int(full_video.get(3))
@@ -349,8 +379,11 @@ def make_image_animation_dataflow(source_path, driving_origin_path, result_path,
     torch.cuda.empty_cache()
     print('extract landmark', flush=True)
     ldmk_path = extract_landmark(safa_video, '/tmp/ldmk.pkl')
-    torch.cuda.empty_cache()
-    print('gfp process', flush=True)
+    # print('blur mouth video', flush=True)
+    # torch.cuda.empty_cache()
+    # safa_video = blur_video_mouth(
+    #     safa_video, ldmk_path, '/tmp/blur.avi', kernel=3)
+    print('enhaance process', flush=True)
     # paste_video_path = video_gfpgan_process(
     #     safa_video, ldmk_path, use_gfp, model_dir=model_dir)
     paste_video_path = video_gpen_process(safa_video, model_dir)
@@ -369,18 +402,17 @@ if __name__ == '__main__':
     # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/1.mp4',f'{root}/1_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=False)
     # concat_video(f'{root}/1_gfpgan.mp4',f'{root}/out/1.mp4','concat2.mp4')
 
-    root = '/home/yuan/hdd/04_20'
+    root = '/home/yuan/hdd/04_29'
     driving_video_path = os.path.join(
-        root, 'lip_man.mp4')
+        root, 'lip_woman.mp4')
     from pathlib import Path
     from glob import glob
-    # save_dir = os.path.join(root, 'yellow_out1')
-    # for image_path in glob(f'{root}/yellow_new/*'):
-    for image_path in sorted(glob(f'{root}/man/*g')):
+
+    for image_path in sorted(glob(f'{root}/*/*g')):
         # image_input = os.path.join(root, image_path)
         image_input = image_path
         save_dir = os.path.join(root, Path(
-            image_path).parent.name+'_out')
+            image_path).parent.name+'_out3')
         os.makedirs(save_dir, exist_ok=True)
 
         out_path = os.path.join(save_dir, 'result_' +
@@ -390,6 +422,11 @@ if __name__ == '__main__':
         make_image_animation_dataflow(
             image_input, driving_video_path, out_path, 'ckpt/', use_crop=True, face_data=os.path.join("datadir/preprocess/driving_woman/face.pkl"))
 
-    # ffmpeg -i test/input1.mp4  -filter:v "crop=476:476:733:151, scale=256:256" crop.mp4
-    # x 733:1209
-    # y 151:627
+    # for video_path in sorted(glob(f'{root}/*/*.mp4')):
+    #     save_dir = os.path.join(root, Path(
+    #         video_path).parent.name+'_enhance1')
+    #     os.makedirs(save_dir, exist_ok=True)
+    #     out_path = os.path.join(save_dir, 'enhance1_' +
+    #                             Path(video_path).stem + '.mp4')
+    #     video_gpen_process(video_path, 'ckpt', out_path)
+    #     break
