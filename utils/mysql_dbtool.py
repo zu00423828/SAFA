@@ -104,7 +104,7 @@ class DBtools:
             FOREIGN KEY(tts_cache_id) REFERENCES tts_cache(id) ON DELETE CASCADE ON UPDATE CASCADE,
             UNIQUE KEY `uniq_client_md5` (client_id, md5(32))
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'''
-
+        # ALTER TABLE `generate_job` CHANGE `image_id` `image_id` INT NULL;
         generate_job = '''CREATE TABLE IF NOT EXISTS generate_job (
             id INTEGER PRIMARY KEY AUTO_INCREMENT,
             client_id INTEGER NOT NULL,
@@ -112,7 +112,7 @@ class DBtools:
             video_id INTEGER NOT NULL,
             audio_id INTEGER NOT NULL,
             filename VARCHAR(200) UNIQUE ,
-            path TEXT UNIQUE,
+            path TEXT,
             status ENUM('init','preprocessing','lipsyncing','image-animating','finished','error') NOT NULL DEFAULT 'init',
             progress INTEGER NOT NULL DEFAULT 0,
             create_datetime DATETIME NOT NULL,
@@ -284,6 +284,7 @@ class DBtools:
                 INNER JOIN video ON gj.video_id=video.id \
                 INNER JOIN audio ON gj.audio_id=audio.id \
                 WHERE gj.id=%s ORDER BY gj.id ASC"
+            # LEFT JOIN  image ON gj.image_id =image.id
             cursor.execute(select_query, result['id'])
             result_all = cursor.fetchone()
             if result_all is None:

@@ -347,7 +347,7 @@ def make_animation_new(source_image, driving_reader,
     # return predictions
 
 
-def find_best_frame(source, driving, cpu=False):
+def find_best_frame(source, driving, fps, duratuin, cpu=False):
     import face_alignment
 
     def normalize_kp(kp):
@@ -363,13 +363,16 @@ def find_best_frame(source, driving, cpu=False):
     kp_source = normalize_kp(kp_source)
     norm = float('inf')
     frame_num = 0
-    for i, image in enumerate(tqdm(driving)):
-        kp_driving = fa.get_landmarks(255 * image)[0]
-        kp_driving = normalize_kp(kp_driving)
-        new_norm = (np.abs(kp_source - kp_driving) ** 2).sum()
-        if new_norm < norm:
-            norm = new_norm
-            frame_num = i
+    for i, image in enumerate(tqdm(driving, total=int(fps*duratuin))):
+        try:
+            kp_driving = fa.get_landmarks(255 * image)[0]
+            kp_driving = normalize_kp(kp_driving)
+            new_norm = (np.abs(kp_source - kp_driving) ** 2).sum()
+            if new_norm < norm:
+                norm = new_norm
+                frame_num = i
+        except:
+            pass
     return frame_num
 
 
@@ -422,11 +425,25 @@ def create_image_animation(source_image_pth, driving_video_pth, result_video_pth
     source_image = resize(source_image, (256, 256))[..., :3]
     generator, kp_detector, tdmm = load_checkpoints(
         config_path=config, checkpoint_path=checkpoint, cpu=False)
+    if use_best_frame:
+        i = find_best_frame(source_image, reader, fps, duration)
+        driving = [resize(im, (256, 256))[..., :3] for im in reader]
+        forward = driving[i:]
+        backward = driving[:(i+1)][::-1]
+        predict_forward = make_animation(
+            source_image, forward, generator, kp_detector, tdmm, with_eye, relative, adapt_scale)
+        predict_backward = make_animation(
+            source_image, backward, generator, kp_detector, tdmm, with_eye, relative, adapt_scale)
+        predictions = predict_backward[::-1] + predict_forward[1:]
+        imageio.mimsave(result_video_pth, [img_as_ubyte(
+            frame) for frame in predictions], fps=fps)
+        return result_video_pth
     make_animation_new(source_image, reader,
                        generator, kp_detector, tdmm, with_eye=with_eye,
                        relative=relative, adapt_movement_scale=adapt_scale, cpu=False, result_video_path=result_video_pth, fps=fps, duration=duration)
 
     return result_video_pth
+
 
     # command=f"ffmpeg -y -i {driving_video_pth} temp.wav "
     # subprocess.call(command,shell=True)

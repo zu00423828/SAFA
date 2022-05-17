@@ -316,7 +316,7 @@ def video_gpen_process(origin_video_path, model_dir, out_video_path='/tmp/paste_
 
 def make_animation_dataflow(source_origin_path, driving_origin_path, temp_dir, result_path, model_path, config_path=None, add_audo=False):
     '''
-    參數  
+    參數
     source_origin_path：被操控的原影片路徑 \n
     driving_origin_path：操控的原影片路徑 \n
     temp_dir：暫存用的資料夾 \n
@@ -359,6 +359,60 @@ def make_animation_dataflow(source_origin_path, driving_origin_path, temp_dir, r
         subprocess.call(command, shell=True)
 
 
+def mouth_teeth(landmarks):
+    left_face_width = landmarks[66, 0] - landmarks[60, 0]
+    right_face_width = landmarks[64, 0] - landmarks[66, 0]
+    delta_left_face_width = left_face_width * 0.1
+    delta_right_face_width = right_face_width * 0.1
+    delta_face_height = (landmarks[66, 1] -
+                         landmarks[62, 1]) * -0.1
+    mouth_contours = [[
+        [landmarks[60, 0] + delta_left_face_width, landmarks[60, 1]],
+        [landmarks[67, 0] + delta_left_face_width, landmarks[67, 1]],
+        [landmarks[66, 0], landmarks[66, 1] + delta_face_height],
+        [landmarks[65, 0] - delta_right_face_width, landmarks[65, 1]],
+        [landmarks[64, 0] - delta_right_face_width, landmarks[64, 1]],
+        [landmarks[63, 0] - delta_right_face_width,
+            landmarks[63, 1] - delta_face_height],
+        [landmarks[62, 0], landmarks[62, 1] - delta_face_height],
+        [landmarks[61, 0] + delta_left_face_width,
+            landmarks[61, 1] - delta_face_height],
+    ]]
+
+    return np.array(mouth_contours, dtype=np.int32)
+
+
+def mouth_mask(video_path, ldmk_path, out_path):
+    f = open(ldmk_path, 'rb')
+    landmarks = pickle.load(f)
+    video = cv2.VideoCapture(video_path)
+    h = int(video.get(4))
+    w = int(video.get(3))
+    fps = video.get(5)
+    out_video = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(
+        *'XVID'), fps, (w, h))
+    lb = create_lb(4)
+    for i in trange(len(landmarks)):
+        _, frame = video.read()
+        mask = np.ones((h, w))
+        a = mouth_teeth(landmarks[i])
+
+        mask = cv2.drawContours(
+            mask*255, a, -1, (0, 0, 0), -1)
+        # mask = cv2.polylines(mask*255, a, True, (0, 0, 0), 3)
+        # mask = blur_image(mask, 19)
+        # mask = cv2.GaussianBlur(mask, (1, 1), 0)
+        _, mask = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)
+        mask = np.where(mask < 255, 0, mask)
+        frame = np.transpose(frame, (2, 0, 1))
+        frame = frame*(mask/255)+(1-mask/255) * \
+            np.random.randint(200, 255, size=(3, h, w))
+        frame = np.transpose(frame, (1, 2, 0))
+        out_video.write(frame.astype(np.uint8))
+        cv2.imwrite('/tmp/mask.png', mask)
+    return out_path
+
+
 def make_image_animation_dataflow(source_path, driving_origin_path, result_path, model_dir, use_crop=False, crf=0, use_gfp=True, face_data=None):
     config_path = f"{os.path.split(os.path.realpath(__file__))[0]}/config/end2end.yaml"
     if use_crop:
@@ -375,10 +429,10 @@ def make_image_animation_dataflow(source_path, driving_origin_path, result_path,
     print('create animation', flush=True)
     safa_model_path = f'{model_dir}/final_3DV.tar'
     safa_video = create_image_animation(source_path, driving_video_path, '/tmp/temp.mp4', config_path,
-                                        safa_model_path, with_eye=True, relative=True, adapt_scale=True, use_best_frame=False)
+                                        safa_model_path, with_eye=True, relative=True, adapt_scale=True, use_best_frame=True)
     torch.cuda.empty_cache()
-    print('extract landmark', flush=True)
-    ldmk_path = extract_landmark(safa_video, '/tmp/ldmk.pkl')
+    # print('extract landmark', flush=True)
+    # ldmk_path = extract_landmark(safa_video, '/tmp/ldmk.pkl')
     # print('blur mouth video', flush=True)
     # torch.cuda.empty_cache()
     # safa_video = blur_video_mouth(
@@ -401,8 +455,8 @@ if __name__ == '__main__':
     # root='/home/yuan/hdd/safa_test/01_18_2'
     # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/1.mp4',f'{root}/1_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=False)
     # concat_video(f'{root}/1_gfpgan.mp4',f'{root}/out/1.mp4','concat2.mp4')
-
-    root = '/home/yuan/hdd/04_29'
+    from mock import generate_lip_video
+    root = '/home/yuan/hdd/05_09'
     driving_video_path = os.path.join(
         root, 'lip_woman.mp4')
     from pathlib import Path
@@ -412,7 +466,7 @@ if __name__ == '__main__':
         # image_input = os.path.join(root, image_path)
         image_input = image_path
         save_dir = os.path.join(root, Path(
-            image_path).parent.name+'_out3')
+            image_path).parent.name+'_out')
         os.makedirs(save_dir, exist_ok=True)
 
         out_path = os.path.join(save_dir, 'result_' +
@@ -422,11 +476,62 @@ if __name__ == '__main__':
         make_image_animation_dataflow(
             image_input, driving_video_path, out_path, 'ckpt/', use_crop=True, face_data=os.path.join("datadir/preprocess/driving_woman/face.pkl"))
 
-    # for video_path in sorted(glob(f'{root}/*/*.mp4')):
+    root = '/home/yuan/hdd/05_16'
+    for audio_path in sorted(glob(f'{root}/audio/*wav')):
+        image_input = f"{root}/img/412.png"
+        lip_dir = f'{root}/lip'
+        os.makedirs(lip_dir, exist_ok=True)
+        lip_path = os.path.join(lip_dir, 'result_' +
+                                Path(audio_path).stem+'.mp4')
+        if os.path.exists(lip_path) == False:
+            generate_lip_video(
+                "datadir/preprocess/driving_woman/face.pkl", audio_path, lip_path)
+        save_dir = os.path.join(root, Path(
+            image_input).parent.name+'_out')
+        os.makedirs(save_dir, exist_ok=True)
+        out_path = os.path.join(save_dir, 'result_' +
+                                Path(lip_path).stem+'.mp4')
+        if os.path.exists(out_path):
+            continue
+        make_image_animation_dataflow(
+            image_input, lip_path, out_path, 'ckpt/', use_crop=True, face_data="datadir/preprocess/driving_woman/face.pkl")
+
+    root = '/home/yuan/hdd/05_16_1'
+    for audio_path in sorted(glob(f'{root}/audio/*wav')):
+        image_input = f"{root}/img/0429_1-ok.png"
+        lip_dir = f'{root}/lip'
+        os.makedirs(lip_dir, exist_ok=True)
+        lip_path = os.path.join(lip_dir, 'result_' +
+                                Path(audio_path).stem+'.mp4')
+        if os.path.exists(lip_path) == False:
+            generate_lip_video(
+                "datadir/preprocess/driving_woman/face.pkl", audio_path, lip_path)
+        save_dir = os.path.join(root, Path(
+            image_input).parent.name+'_out')
+        os.makedirs(save_dir, exist_ok=True)
+        out_path = os.path.join(save_dir, 'result_' +
+                                Path(lip_path).stem+'.mp4')
+        if os.path.exists(out_path):
+            continue
+        make_image_animation_dataflow(
+            image_input, lip_path, out_path, 'ckpt/', use_crop=True, face_data="datadir/preprocess/driving_woman/face.pkl")
+
+    # root = '/home/yuan/hdd/05_16_custom'
+    # for audio_path in sorted(glob(f'{root}/audio/man.wav')):
+    #     image_input = f"{root}/img/1-1.jpg"
+    #     lip_dir = f'{root}/lip'
+    #     os.makedirs(lip_dir, exist_ok=True)
+    #     lip_path = os.path.join(lip_dir, 'result_' +
+    #                             Path(audio_path).stem+'.mp4')
+    #     if os.path.exists(lip_path) == False:
+    #         generate_lip_video(
+    #             "datadir/preprocess/driving_woman/face.pkl", audio_path, lip_path)
     #     save_dir = os.path.join(root, Path(
-    #         video_path).parent.name+'_enhance1')
+    #         image_input).parent.name+'_out')
     #     os.makedirs(save_dir, exist_ok=True)
-    #     out_path = os.path.join(save_dir, 'enhance1_' +
-    #                             Path(video_path).stem + '.mp4')
-    #     video_gpen_process(video_path, 'ckpt', out_path)
-    #     break
+    #     out_path = os.path.join(save_dir, 'result_' +
+    #                             Path(lip_path).stem+'.mp4')
+    #     if os.path.exists(out_path):
+    #         continue
+    #     make_image_animation_dataflow(
+    #         image_input, lip_path, out_path, 'ckpt/', use_crop=True, face_data="datadir/preprocess/driving_woman/face.pkl")

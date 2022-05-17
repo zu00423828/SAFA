@@ -1,6 +1,7 @@
 log/
 asserts/
 mockdir/
+data/
 datadir/audio/
 temp/
 # .git
