@@ -280,11 +280,11 @@ class DBtools:
                 gj.enhance,image.generate_image_content image_content,image.filename image_filename,\
                 video.filename video_filename,audio.filename audio_filename ,gj.comment\
                 FROM generate_job as gj \
-                INNER JOIN  image ON gj.image_id =image.id\
+                LEFT JOIN  image ON gj.image_id =image.id \
                 INNER JOIN video ON gj.video_id=video.id \
                 INNER JOIN audio ON gj.audio_id=audio.id \
                 WHERE gj.id=%s ORDER BY gj.id ASC"
-            # LEFT JOIN  image ON gj.image_id =image.id
+            # INNER JOIN  image ON gj.image_id =image.id\
             cursor.execute(select_query, result['id'])
             result_all = cursor.fetchone()
             if result_all is None:

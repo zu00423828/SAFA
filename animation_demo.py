@@ -1,7 +1,5 @@
-from gfpgan import GFPGANer
 import requests
 import cv2
-import subprocess
 from scipy.spatial import ConvexHull
 from animate import normalize_kp
 from modules.tdmm_estimator import TDMMEstimator
@@ -426,8 +424,8 @@ def create_image_animation(source_image_pth, driving_video_pth, result_video_pth
     generator, kp_detector, tdmm = load_checkpoints(
         config_path=config, checkpoint_path=checkpoint, cpu=False)
     if use_best_frame:
-        i = find_best_frame(source_image, reader, fps, duration)
         driving = [resize(im, (256, 256))[..., :3] for im in reader]
+        i = find_best_frame(source_image, driving, fps, duration)
         forward = driving[i:]
         backward = driving[:(i+1)][::-1]
         predict_forward = make_animation(
@@ -443,7 +441,6 @@ def create_image_animation(source_image_pth, driving_video_pth, result_video_pth
                        relative=relative, adapt_movement_scale=adapt_scale, cpu=False, result_video_path=result_video_pth, fps=fps, duration=duration)
 
     return result_video_pth
-
 
     # command=f"ffmpeg -y -i {driving_video_pth} temp.wav "
     # subprocess.call(command,shell=True)
