@@ -476,26 +476,6 @@ if __name__ == '__main__':
         make_image_animation_dataflow(
             image_input, driving_video_path, out_path, 'ckpt/', use_crop=True, face_data=os.path.join("datadir/preprocess/driving_woman/face.pkl"))
 
-    # root = '/home/yuan/hdd/05_16'
-    # for audio_path in sorted(glob(f'{root}/audio/*wav')):
-    #     image_input = f"{root}/img/412.png"
-    #     lip_dir = f'{root}/lip'
-    #     os.makedirs(lip_dir, exist_ok=True)
-    #     lip_path = os.path.join(lip_dir, 'result_' +
-    #                             Path(audio_path).stem+'.mp4')
-    #     if os.path.exists(lip_path) == False:
-    #         generate_lip_video(
-    #             "datadir/preprocess/driving_woman/face.pkl", audio_path, lip_path)
-    #     save_dir = os.path.join(root, Path(
-    #         image_input).parent.name+'_out')
-    #     os.makedirs(save_dir, exist_ok=True)
-    #     out_path = os.path.join(save_dir, 'result_' +
-    #                             Path(lip_path).stem+'.mp4')
-    #     if os.path.exists(out_path):
-    #         continue
-    #     make_image_animation_dataflow(
-    #         image_input, lip_path, out_path, 'ckpt/', use_crop=True, face_data="datadir/preprocess/driving_woman/face.pkl")
-
     root = '/home/yuan/hdd/05_19'
     for audio_path in sorted(glob(f'{root}/audio/*wav')):
         image_input = f"{root}/img/412.png"
@@ -516,16 +496,18 @@ if __name__ == '__main__':
         make_image_animation_dataflow(
             image_input, lip_path, out_path, 'ckpt/', use_crop=True, crf=10, face_data="datadir/preprocess/driving_woman/face.pkl", use_best=True)
 
-    root = '/home/yuan/hdd/05_16_custom'
-    for audio_path in sorted(glob(f'{root}/audio/woman.wav')):
-        image_input = f"{root}/img/切cut-青輔02.png"
-        lip_dir = f'{root}/lip'
+    root = '/home/yuan/hdd/05_23_custom'
+    # face_data="datadir/preprocess/driving_woman/face.pkl"
+    face_data = '/home/yuan/hdd/driving_video/model2/face.pkl'
+    for audio_path in sorted(glob(f'{root}/audio/man.wav')):
+        image_input = f"{root}/img/Boy-003.png"
+        lip_dir = f'{root}/lip2'
         os.makedirs(lip_dir, exist_ok=True)
         lip_path = os.path.join(lip_dir, 'result_' +
                                 Path(audio_path).stem+'.mp4')
         if os.path.exists(lip_path) == False:
             generate_lip_video(
-                "datadir/preprocess/driving_woman/face.pkl", audio_path, lip_path)
+                face_data, audio_path, lip_path)
         save_dir = os.path.join(root, Path(
             image_input).parent.name+'_out')
         os.makedirs(save_dir, exist_ok=True)
@@ -534,18 +516,4 @@ if __name__ == '__main__':
         if os.path.exists(out_path):
             continue
         make_image_animation_dataflow(
-            image_input, lip_path, out_path, 'ckpt/', use_crop=True, face_data="datadir/preprocess/driving_woman/face.pkl")
-
-    # root = '/home/yuan/hdd/05_17_ten_10'
-    # for lip_path in sorted(glob(f'{root}/lip/*mp4')):
-    #     image_input = f"{root}/img/0429_1-ok.png"
-    #     save_dir = os.path.join(root, Path(
-    #         image_input).parent.name+'_out_test_norm')
-    #     os.makedirs(save_dir, exist_ok=True)
-    #     out_path = os.path.join(save_dir, 'result_' +
-    #                             Path(lip_path).stem+'.mp4')
-    #     if os.path.exists(out_path):
-    #         continue
-    #     make_image_animation_dataflow(
-    #         image_input, lip_path, out_path, 'ckpt/', use_crop=True, face_data="datadir/preprocess/driving_woman/face.pkl", use_best=True)
-    #     break
+            image_input, lip_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
