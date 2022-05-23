@@ -71,9 +71,20 @@ class LaplacianBlending(nn.Module):
         out = out + diff
         return out
 
-    def forward(self, x, y, mask):
+    def add_border(self, x, y, mask, h, w):
+        padding_w = w-x.shape[-1]
+        paddint_h = h-x.shape[-2]
+        padding = nn.ConstantPad2d(
+            padding=(0, padding_w, 0, paddint_h), value=1.)
+        x = padding(x)
+        y = padding(y)
+        mask = padding(mask)
+        return x, y, mask
+
+    def forward(self, x, y, mask, h, w):
         x_laps = []
         y_laps = []
+        x, y, mask = self.add_border(x, y, mask, h, w)
         masks = [mask]
         for it in range(self.iters):
             x, y, x_lap, y_lap, mask = self.down(x, y, mask)

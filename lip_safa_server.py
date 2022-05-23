@@ -41,6 +41,82 @@ def check_audio(gcs_path, audio_dir):
     return audio_path
 
 
+def lip_process(sess, job, preprocess_dir, video_dir, audio_dir, GENERATE_BATCH_SIZE):
+    tempdir = ".".join(os.path.basename(
+        job["video_path"]).split(".")[:-1])
+    dumpdir = os.path.join(preprocess_dir, tempdir)
+    face_config = os.path.join(dumpdir, 'face.pkl')
+    dbtools.update_job_process_datetime(job['id'], True)
+    video_path = check_video(job['video_path'], video_dir)
+    if not os.path.exists(face_config):
+        print('preprocessing', flush=True)
+        dbtools.update_job_progress(
+            job['id'], Status.preprocessing.value, 25)
+        face_config = detect_face_and_dump_from_video(
+            video_path, dumpdir)
+        torch.cuda.empty_cache()
+    audio_path = check_audio(job['audio_path'], audio_dir)
+    dbtools.update_job_progress(
+        job['id'], Status.lipsyncing.value, 50)
+    print('lipsyncing', flush=True)
+    generate_video(face_config, audio_path, os.environ['LIP_MODEL_PATH'],
+                   '/tmp/lip.mp4', batch_size=GENERATE_BATCH_SIZE)
+    torch.cuda.empty_cache()
+    filename = uuid4().hex
+    result_path = f"/tmp/finish.mp4"
+    gcs_path = f"result/{filename}.mp4"
+    result_filename = os.path.basename(gcs_path)
+    dbtools.update_job_result(
+        job['id'], result_filename, gcs_path)
+    upload_to_gcs(result_path, gcs_path)
+    dbtools.update_job_process_datetime(job['id'], False)
+    dbtools.update_job_progress(
+        job['id'], Status.finished.value, 100)
+    dbtools.update_ticket(sess.processing_ticket_id)
+    print(f"job finish {job['id']}", flush=True)
+
+
+def safa_process(sess, job, preprocess_dir, video_dir, audio_dir, GENERATE_BATCH_SIZE):
+    tempdir = ".".join(os.path.basename(
+        job["video_path"]).split(".")[:-1])
+    dumpdir = os.path.join(preprocess_dir, tempdir)
+    face_config = os.path.join(dumpdir, 'face.pkl')
+    dbtools.update_job_process_datetime(job['id'], True)
+    video_path = check_video(job['video_path'], video_dir)
+    if not os.path.exists(face_config):
+        print('preprocessing', flush=True)
+        dbtools.update_job_progress(
+            job['id'], Status.preprocessing.value, 25)
+        face_config = detect_face_and_dump_from_video(
+            video_path, dumpdir)
+        torch.cuda.empty_cache()
+    audio_path = check_audio(job['audio_path'], audio_dir)
+    dbtools.update_job_progress(
+        job['id'], Status.lipsyncing.value, 50)
+    print('lipsyncing', flush=True)
+    generate_video(face_config, audio_path, os.environ['LIP_MODEL_PATH'],
+                   '/tmp/lip.mp4', batch_size=GENERATE_BATCH_SIZE)
+    torch.cuda.empty_cache()
+    filename = uuid4().hex
+    result_path = f"/tmp/finish.mp4"
+    gcs_path = f"result/{filename}.mp4"
+    result_filename = os.path.basename(gcs_path)
+    image_content = job['image_content']
+    dbtools.update_job_progress(
+        job['id'], Status.image_animating.value, 75)
+    make_image_animation_dataflow(
+        image_content, '/tmp/lip.mp4', result_path, 'ckpt', crf=job['out_crf'], use_crop=True, use_gfp=job['enhance'], face_data=face_config)
+    torch.cuda.empty_cache()
+    dbtools.update_job_result(
+        job['id'], result_filename, gcs_path)
+    upload_to_gcs(result_path, gcs_path)
+    dbtools.update_job_process_datetime(job['id'], False)
+    dbtools.update_job_progress(
+        job['id'], Status.finished.value, 100)
+    dbtools.update_ticket(sess.processing_ticket_id)
+    print(f"job finish {job['id']}", flush=True)
+
+
 def worker(data_dir):
     FACE_DETECT_BATCH_SIZE = 4 if os.environ.get(
         "FACE_DETECT_BATCH_SIZE") is None else int(os.environ.get("FACE_DETECT_BATCH_SIZE"))
@@ -74,16 +150,6 @@ def worker(data_dir):
     # add_image2db(client_id, 'mock_dir/EP010-18.png', Gender.male.value, '')
     # add_image2db(client_id, 'mock_dir/0050.png', Gender.female.value, '')
 
-    # add_image2db(client_id, 'mock_dir/new/01.jpg', Gender.female.value, '')
-    # add_image2db(client_id, 'mock_dir/new/02.jpg', Gender.female.value, '')
-    # add_image2db(client_id, 'mock_dir/new/03.jpg', Gender.female.value, '')
-    # add_image2db(client_id, 'mock_dir/new/04.jpg', Gender.male.value, '')
-    # add_image2db(client_id, 'mock_dir/new/05.jpg', Gender.female.value, '')
-    # add_image2db(client_id, 'mock_dir/new/06.jpg', Gender.female.value, '')
-    # add_image2db(client_id, 'mock_dir/new/07.jpg', Gender.female.value, '')
-    # add_image2db(client_id, 'mock_dir/new/08.jpg', Gender.female.value, '')
-    # add_image2db(client_id, 'mock_dir/new/09.jpg', Gender.female.value, '')
-    # add_image2db(client_id, 'mock_dir/new/10.jpg', Gender.female.value, '')
     with dbtools.session() as sess:
         print('ticket_id:', sess.processing_ticket_id, flush=True)
         while True:
@@ -91,54 +157,15 @@ def worker(data_dir):
             try:
                 job = dbtools.get_job_join()
                 if job is not None:
-                    st = time.time()
                     if dbtools.set_ticket_job(sess.processing_ticket_id, job['id']) == True:
                         print('ticket_id: ', sess.processing_ticket_id,
                               ' job_id: ', job['id'], flush=True)
-                        tempdir = ".".join(os.path.basename(
-                            job["video_path"]).split(".")[:-1])
-                        dumpdir = os.path.join(preprocess_dir, tempdir)
-                        face_config = os.path.join(dumpdir, 'face.pkl')
-                        dbtools.update_job_process_datetime(job['id'], True)
-                        video_path = check_video(job['video_path'], video_dir)
-                        if not os.path.exists(face_config):
-                            print('preprocessing', flush=True)
-                            dbtools.update_job_progress(
-                                job['id'], Status.preprocessing.value, 25)
-                            face_config = detect_face_and_dump_from_video(
-                                video_path, dumpdir)
-                            torch.cuda.empty_cache()
-                        audio_path = check_audio(job['audio_path'], audio_dir)
-                        dbtools.update_job_progress(
-                            job['id'], Status.lipsyncing.value, 50)
-                        print('lipsyncing', flush=True)
-                        generate_video(face_config, audio_path, os.environ['LIP_MODEL_PATH'],
-                                       '/tmp/lip.mp4', batch_size=GENERATE_BATCH_SIZE)
-                        # image_name = Path(job['image_filename']).stem
-                        # video_name = Path(job['video_filename']).stem
-                        # audio_name = Path(job['audio_filename']).stem
-                        torch.cuda.empty_cache()
-                        filename = uuid4().hex
-                        result_path = f"/tmp/finish.mp4"
-                        gcs_path = f"result/{filename}.mp4"
-                        result_filename = os.path.basename(gcs_path)
-                        image_content = job['image_content']
-                        dbtools.update_job_progress(
-                            job['id'], Status.image_animating.value, 75)
-                        make_image_animation_dataflow(
-                            image_content, '/tmp/lip.mp4', result_path, 'ckpt', crf=job['out_crf'], use_crop=True, use_gfp=job['enhance'], face_data=face_config)
-                        torch.cuda.empty_cache()
-                        dbtools.update_job_result(
-                            job['id'], result_filename, gcs_path)
-                        upload_to_gcs(result_path, gcs_path)
-                        et = time.time()
-                        cost_time = f'{et-st:0.2f}'
-                        dbtools.update_job_process_datetime(job['id'], False)
-                        dbtools.update_job_progress(
-                            job['id'], Status.finished.value, 100)
-                        dbtools.update_ticket(sess.processing_ticket_id)
-                        print(f"job finish {job['id']}", flush=True)
-                        print(cost_time, flush=True)
+                        if job['image_id'] is None:
+                            lip_process(sess, job, preprocess_dir, video_dir,
+                                        audio_dir, GENERATE_BATCH_SIZE)
+                        else:
+                            safa_process(sess, job, preprocess_dir, video_dir,
+                                         audio_dir, GENERATE_BATCH_SIZE)
                     else:
                         continue
                 else:
