@@ -1,4 +1,3 @@
-from logging import root
 import pickle
 import cv2
 import numpy as np
@@ -12,7 +11,6 @@ import face_alignment
 import subprocess
 from tqdm import trange
 from utils.crop_video import process_video
-from gfpgan import GFPGANer
 from gpen.face_enhancement import FaceEnhancement
 
 
@@ -307,9 +305,9 @@ def video_gpen_process(origin_video_path, model_dir, out_video_path='/tmp/paste_
         *'XVID'), fps, (w, h))
     for _ in trange(frame_count):
         _, frame = full_video.read()
-        img_out, orig_faces, enhanced_faces = processer.process(
+        img_out, _, _ = processer.process(
             frame, aligned=False)
-        img_out = cv2.resize(img_out, (256, 256))
+        img_out = cv2.resize(img_out, (w, h))
         out_video.write(img_out)
     return out_video_path
 
@@ -456,55 +454,55 @@ if __name__ == '__main__':
     # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/1.mp4',f'{root}/1_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=False)
     # concat_video(f'{root}/1_gfpgan.mp4',f'{root}/out/1.mp4','concat2.mp4')
     from mock import generate_lip_video
-    root = '/home/yuan/hdd/05_19_1'
-    driving_video_path = os.path.join(
-        root, 'lip_man.mp4')
+    # root = '/home/yuan/hdd/05_25'
+    # driving_video_path = os.path.join(
+    #     root, 'lip/result_woman.mp4')
+    # face_data = '/home/yuan/hdd/driving_video/model2/face.pkl'
     from pathlib import Path
     from glob import glob
 
-    for image_path in sorted(glob(f'{root}/img/*g')):
-        # image_input = os.path.join(root, image_path)
-        image_input = image_path
-        save_dir = os.path.join(root, Path(
-            image_path).parent.name+'_out')
-        os.makedirs(save_dir, exist_ok=True)
+    # for image_path in sorted(glob(f'{root}/img/*g')):
+    #     # image_input = os.path.join(root, image_path)
+    #     image_input = image_path
+    #     save_dir = os.path.join(root, Path(
+    #         image_path).parent.name+'_out_modify')
+    #     os.makedirs(save_dir, exist_ok=True)
 
-        out_path = os.path.join(save_dir, 'result_' +
-                                Path(image_input).stem+'.mp4')
-        if os.path.exists(out_path):
-            continue
-        make_image_animation_dataflow(
-            image_input, driving_video_path, out_path, 'ckpt/', use_crop=True, face_data=os.path.join("datadir/preprocess/driving_woman/face.pkl"))
+    #     out_path = os.path.join(save_dir, 'result_' +
+    #                             Path(image_input).stem+'.mp4')
+    #     if os.path.exists(out_path):
+    #         continue
+    #     make_image_animation_dataflow(
+    #         image_input, driving_video_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
+    #     break
+    # root = '/home/yuan/hdd/05_19'
+    # for audio_path in sorted(glob(f'{root}/audio/*wav')):
+    #     image_input = f"{root}/img/412.png"
+    #     lip_dir = f'{root}/lip'
+    #     os.makedirs(lip_dir, exist_ok=True)
+    #     lip_path = os.path.join(lip_dir,
+    #                             Path(audio_path).stem+'.mp4')
+    #     if os.path.exists(lip_path) == False:
+    #         generate_lip_video(
+    #             "datadir/preprocess/driving_woman/face.pkl", audio_path, lip_path)
+    #     save_dir = os.path.join(root, Path(
+    #         image_input).parent.name+'_out')
+    #     os.makedirs(save_dir, exist_ok=True)
+    #     out_path = os.path.join(save_dir, 'result_' +
+    #                             Path(lip_path).stem+'.mp4')
+    #     if os.path.exists(out_path):
+    #         continue
+    #     make_image_animation_dataflow(
+    #         image_input, lip_path, out_path, 'ckpt/', use_crop=True, crf=10, face_data="datadir/preprocess/driving_woman/face.pkl", use_best=True)
 
-    root = '/home/yuan/hdd/05_19'
-    for audio_path in sorted(glob(f'{root}/audio/*wav')):
-        image_input = f"{root}/img/412.png"
+    root = '/home/yuan/hdd/05_25_ten_lang'
+    # face_data = "datadir/preprocess/driving_woman/face.pkl"
+    face_data = '/home/yuan/hdd/driving_video/model2/face.pkl'
+    for audio_path in sorted(glob(f'{root}/audio/*')):
+        image_input = f"{root}/img/0429_1-ok.png"
         lip_dir = f'{root}/lip'
         os.makedirs(lip_dir, exist_ok=True)
-        lip_path = os.path.join(lip_dir,
-                                Path(audio_path).stem+'.mp4')
-        if os.path.exists(lip_path) == False:
-            generate_lip_video(
-                "datadir/preprocess/driving_woman/face.pkl", audio_path, lip_path)
-        save_dir = os.path.join(root, Path(
-            image_input).parent.name+'_out')
-        os.makedirs(save_dir, exist_ok=True)
-        out_path = os.path.join(save_dir, 'result_' +
-                                Path(lip_path).stem+'.mp4')
-        if os.path.exists(out_path):
-            continue
-        make_image_animation_dataflow(
-            image_input, lip_path, out_path, 'ckpt/', use_crop=True, crf=10, face_data="datadir/preprocess/driving_woman/face.pkl", use_best=True)
-
-    root = '/home/yuan/hdd/05_23_custom'
-    # face_data="datadir/preprocess/driving_woman/face.pkl"
-    face_data = '/home/yuan/hdd/driving_video/model2/face.pkl'
-    for audio_path in sorted(glob(f'{root}/audio/man.wav')):
-        image_input = f"{root}/img/Boy-003.png"
-        lip_dir = f'{root}/lip2'
-        os.makedirs(lip_dir, exist_ok=True)
-        lip_path = os.path.join(lip_dir, 'result_' +
-                                Path(audio_path).stem+'.mp4')
+        lip_path = os.path.join(lip_dir, Path(audio_path).stem+'.mp4')
         if os.path.exists(lip_path) == False:
             generate_lip_video(
                 face_data, audio_path, lip_path)
@@ -512,8 +510,20 @@ if __name__ == '__main__':
             image_input).parent.name+'_out')
         os.makedirs(save_dir, exist_ok=True)
         out_path = os.path.join(save_dir, 'result_' +
-                                Path(image_input).stem+'.mp4')
+                                Path(audio_path).stem+'.mp4')
         if os.path.exists(out_path):
             continue
         make_image_animation_dataflow(
             image_input, lip_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
+
+    # file_list = os.listdir('/home/yuan/hdd/05_25/img_out')
+    # l_dir = '/home/yuan/hdd/05_25/img_out/'
+    # r_dir = '/home/yuan/hdd/05_25/img_out_tps/'
+    # o_dir = '/home/yuan/hdd/05_25/concat/'
+    # for file in file_list:
+    #     l = l_dir+file
+    #     r = r_dir+file
+    #     o = o_dir+file
+    #     if os.path.exists(o):
+    #         continue
+    #     concat_video(l, r, o)
