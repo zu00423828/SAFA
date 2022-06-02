@@ -339,7 +339,7 @@ def make_animation_new(source_image, driving_reader,
                                 driving_features=driving_codedict)
 
                 prediction = np.transpose(
-                    out['prediction'].data.cpu().numpy(), [0, 2, 3, 1])[0]
+                    out['prediction'].cpu().numpy(), [0, 2, 3, 1])[0]
                 prediction = (prediction*255).astype(np.uint8)
                 writer.append_data(prediction)
         except Exception as e:

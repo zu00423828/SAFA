@@ -445,10 +445,6 @@ def make_image_animation_dataflow(source_path, driving_origin_path, result_path,
 
 
 if __name__ == '__main__':
-    # inference_animation_dataflow('new_test/source_all.mp4','new_test/driving_all.mp4','temp','finish.mp4','ckpt/final_3DV.tar')
-    # make_animation_dataflow('test1/1.mp4','test1/1.mp4','test1/temp','finish_t.mp4','ckpt/final_3DV.tar',add_audo=True)
-    # make_animation_dataflow('finish.mp4','finish_2/driving_all.mp4','finish_2/temp','finish2.mp4','ckpt/final_3DV.tar',add_audo=True)
-    # concat_video('/home/yuan/repo/my_safa/01_18/1.mp4','/home/yuan/repo/my_safa/01_18/out/1_1.mp4','concat.mp4')
 
     # root='/home/yuan/hdd/safa_test/01_18_2'
     # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/1.mp4',f'{root}/1_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=False)
@@ -495,7 +491,7 @@ if __name__ == '__main__':
     #     make_image_animation_dataflow(
     #         image_input, lip_path, out_path, 'ckpt/', use_crop=True, crf=10, face_data="datadir/preprocess/driving_woman/face.pkl", use_best=True)
 
-    root = '/home/yuan/hdd/05_25_ten_lang'
+    root = '/home/yuan/hdd/06_01'
     # face_data = "datadir/preprocess/driving_woman/face.pkl"
     face_data = '/home/yuan/hdd/driving_video/model2/face.pkl'
     for audio_path in sorted(glob(f'{root}/audio/*')):
