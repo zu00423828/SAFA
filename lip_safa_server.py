@@ -5,10 +5,9 @@ from w2l.utils.generate import generate_video
 import torch
 import time
 import os
-from pathlib import Path
 from enum import Enum
 from utils.mysql_dbtool import dbtools
-from utils.file import add_client, add_video2db, add_image2db
+from utils.file import add_client, add_video2db
 from utils.gcs_tool import upload_to_gcs, download_gcs
 
 
@@ -143,13 +142,6 @@ def worker(data_dir):
     add_video2db(client_id, 'mock_dir/driving_man.mp4', '')
     add_video2db(client_id, 'mock_dir/driving_woman.mp4', '')
 
-    # add_image2db(client_id, 'mock_dir/0212.png', Gender.female.value, '')
-    # # add_image2db(client_id, 'mock_dir/EP007-02new.jpg',
-    # #              Gender.female.value, '')
-    # add_image2db(client_id, 'mock_dir/EP010-08.jpg', Gender.female.value, '')
-    # add_image2db(client_id, 'mock_dir/EP010-18.png', Gender.male.value, '')
-    # add_image2db(client_id, 'mock_dir/0050.png', Gender.female.value, '')
-
     with dbtools.session() as sess:
         print('ticket_id:', sess.processing_ticket_id, flush=True)
         while True:
@@ -160,7 +152,7 @@ def worker(data_dir):
                     if dbtools.set_ticket_job(sess.processing_ticket_id, job['id']) == True:
                         print('ticket_id: ', sess.processing_ticket_id,
                               ' job_id: ', job['id'], flush=True)
-                        if job['image_id'] is None:
+                        if job['image_content'] is None:
                             lip_process(sess, job, preprocess_dir, video_dir,
                                         audio_dir, GENERATE_BATCH_SIZE)
                         else:

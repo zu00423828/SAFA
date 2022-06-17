@@ -1,7 +1,6 @@
 import requests
 import cv2
 from scipy.spatial import ConvexHull
-from animate import normalize_kp
 from modules.tdmm_estimator import TDMMEstimator
 from modules.keypoint_detector import KPDetector
 from modules.generator import OcclusionAwareGenerator
@@ -15,6 +14,27 @@ from argparse import ArgumentParser
 import yaml
 import matplotlib
 matplotlib.use('Agg')
+
+
+def normalize_kp(kp_source, kp_driving, kp_driving_initial):
+    source_area = ConvexHull(
+        kp_source['value'][0].data.cpu().numpy()).volume
+    driving_area = ConvexHull(
+        kp_driving_initial['value'][0].data.cpu().numpy()).volume
+    adapt_movement_scale = np.sqrt(source_area) / np.sqrt(driving_area)
+
+    kp_new = {k: v for k, v in kp_driving.items()}
+
+    kp_value_diff = (kp_driving['value'] - kp_driving_initial['value'])
+    kp_value_diff *= adapt_movement_scale
+    kp_new['value'] = kp_value_diff + kp_source['value']
+
+    jacobian_diff = torch.matmul(
+        kp_driving['jacobian'], torch.inverse(kp_driving_initial['jacobian']))
+    kp_new['jacobian'] = torch.matmul(
+        jacobian_diff, kp_source['jacobian'])
+
+    return kp_new
 
 
 def laod_stylegan_avatar():
@@ -231,8 +251,7 @@ def make_animation(source_image, driving_video,
 
             # calculate relative kp
             kp_norm = normalize_kp(kp_source=kp_source, kp_driving=kp_driving,
-                                   kp_driving_initial=kp_driving_initial, use_relative_movement=relative,
-                                   use_relative_jacobian=relative, adapt_movement_scale=adapt_movement_scale)
+                                   kp_driving_initial=kp_driving_initial)
             out = generator(source, kp_source=kp_source, kp_driving=kp_norm, render_ops=render_ops,
                             driving_features=driving_codedict)
             del out['sparse_deformed']
@@ -254,7 +273,7 @@ def make_animation_new(source_image, driving_reader,
         camera = camera.clone().view(-1, 1, 3)
         X_trans = X[:, :, :2] + camera[:, :, 1:]
         X_trans = torch.cat([X_trans, X[:, :, 2:]], 2)
-        shape = X_trans.shape
+        # shape = X_trans.shape
         Xn = (camera[:, :, 0:1] * X_trans)
         return Xn
 
@@ -276,43 +295,33 @@ def make_animation_new(source_image, driving_reader,
                 driving_frame = torch.tensor(frame[np.newaxis].astype(
                     np.float32)).permute(0, 3, 1, 2)
                 driving_frame = driving_frame.to(device)
+                kp_driving = kp_detector(driving_frame)
+                driving_codedict = tdmm.encode(driving_frame)
                 if driving_initial is None:
                     driving_initial = driving_frame.clone()
                     kp_driving_initial = kp_detector(driving_initial)
                     driving_init_codedict = tdmm.encode(driving_initial)
 
-                kp_driving = kp_detector(driving_frame)
-                driving_codedict = tdmm.encode(driving_frame)
-
                 # calculate relative 3D motion in the code space
-                if relative:
-                    delta_shape = source_codedict['shape'] + \
-                        driving_codedict['shape'] - \
-                        driving_init_codedict['shape']
-                    delta_exp = source_codedict['exp'] + \
-                        driving_codedict['exp'] - driving_init_codedict['exp']
-                    delta_pose = source_codedict['pose'] + \
-                        driving_codedict['pose'] - \
-                        driving_init_codedict['pose']
-                else:
-                    delta_shape = source_codedict['shape']
-                    delta_exp = driving_codedict['exp']
-                    delta_pose = driving_codedict['pose']
+                delta_shape = source_codedict['shape'] + \
+                    driving_codedict['shape'] - \
+                    driving_init_codedict['shape']
+                delta_exp = source_codedict['exp'] + \
+                    driving_codedict['exp'] - driving_init_codedict['exp']
+                delta_pose = source_codedict['pose'] + \
+                    driving_codedict['pose'] - \
+                    driving_init_codedict['pose']
 
                 delta_source_verts, _, _ = tdmm.flame(shape_params=delta_shape,
                                                       expression_params=delta_exp,
                                                       pose_params=delta_pose)
 
-                if relative:
-                    delta_scale = source_codedict['cam'][:, 0:1] * \
-                        driving_codedict['cam'][:, 0:1] / \
-                        driving_init_codedict['cam'][:, 0:1]
-                    delta_trans = source_codedict['cam'][:, 1:] + \
-                        driving_codedict['cam'][:, 1:] - \
-                        driving_init_codedict['cam'][:, 1:]
-                else:
-                    delta_scale = driving_codedict['cam'][:, 0:1]
-                    delta_trans = driving_codedict['cam'][:, 1:]
+                delta_scale = source_codedict['cam'][:, 0:1] * \
+                    driving_codedict['cam'][:, 0:1] / \
+                    driving_init_codedict['cam'][:, 0:1]
+                delta_trans = source_codedict['cam'][:, 1:] + \
+                    driving_codedict['cam'][:, 1:] - \
+                    driving_init_codedict['cam'][:, 1:]
 
                 delta_cam = torch.cat([delta_scale, delta_trans], dim=1)
                 delta_source_transformed_verts = batch_orth_proj(
@@ -325,16 +334,12 @@ def make_animation_new(source_image, driving_reader,
 
                 # calculate relative kp
                 kp_norm = normalize_kp(kp_source=kp_source, kp_driving=kp_driving,
-                                       kp_driving_initial=kp_driving_initial, use_relative_movement=relative,
-                                       use_relative_jacobian=relative, adapt_movement_scale=adapt_movement_scale)
+                                       kp_driving_initial=kp_driving_initial)
                 out = generator(source, kp_source=kp_source, kp_driving=kp_norm, render_ops=render_ops,
                                 driving_features=driving_codedict)
-                del out['sparse_deformed']
-                out['kp_source'] = kp_source
-                out['kp_driving'] = kp_driving
 
                 prediction = np.transpose(
-                    out['prediction'].data.cpu().numpy(), [0, 2, 3, 1])[0]
+                    out['prediction'].cpu().numpy(), [0, 2, 3, 1])[0]
                 prediction = (prediction*255).astype(np.uint8)
                 writer.append_data(prediction)
         except Exception as e:
@@ -441,6 +446,7 @@ def create_image_animation(source_image_pth, driving_video_pth, result_video_pth
                        relative=relative, adapt_movement_scale=adapt_scale, cpu=False, result_video_path=result_video_pth, fps=fps, duration=duration)
 
     return result_video_pth
+
 
     # command=f"ffmpeg -y -i {driving_video_pth} temp.wav "
     # subprocess.call(command,shell=True)
