@@ -121,6 +121,9 @@ class DBtools:
             out_crf INTEGER NOT NULL DEFAULT 10,
             enhance BOOLEAN NOT NULL DEFAULT true,
             comment TEXT,
+            youtube_url TEXT,
+            youtube_title VARCHAR(255) UNIQUE DEFAULT NULL,
+            youtube_description TEXT,
             FOREIGN KEY(client_id) REFERENCES client(id) ON DELETE CASCADE ON UPDATE CASCADE,
             UNIQUE KEY unique_item (image_id, video_id, audio_id, out_crf, enhance)
              ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'''

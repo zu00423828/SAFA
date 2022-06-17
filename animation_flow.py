@@ -446,53 +446,13 @@ def make_image_animation_dataflow(source_path, driving_origin_path, result_path,
 
 if __name__ == '__main__':
 
-    # root='/home/yuan/hdd/safa_test/01_18_2'
-    # make_image_animation_dataflow(f'{root}/EP010-08.jpg',f'{root}/1.mp4',f'{root}/1_gfpgan.mp4','ckpt/final_3DV.tar',use_crop=False)
-    # concat_video(f'{root}/1_gfpgan.mp4',f'{root}/out/1.mp4','concat2.mp4')
+
     from mock import generate_lip_video
-    # root = '/home/yuan/hdd/05_25'
-    # driving_video_path = os.path.join(
-    #     root, 'lip/result_woman.mp4')
-    # face_data = '/home/yuan/hdd/driving_video/model2/face.pkl'
     from pathlib import Path
     from glob import glob
 
-    # for image_path in sorted(glob(f'{root}/img/*g')):
-    #     # image_input = os.path.join(root, image_path)
-    #     image_input = image_path
-    #     save_dir = os.path.join(root, Path(
-    #         image_path).parent.name+'_out_modify')
-    #     os.makedirs(save_dir, exist_ok=True)
 
-    #     out_path = os.path.join(save_dir, 'result_' +
-    #                             Path(image_input).stem+'.mp4')
-    #     if os.path.exists(out_path):
-    #         continue
-    #     make_image_animation_dataflow(
-    #         image_input, driving_video_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
-    #     break
-    # root = '/home/yuan/hdd/05_19'
-    # for audio_path in sorted(glob(f'{root}/audio/*wav')):
-    #     image_input = f"{root}/img/412.png"
-    #     lip_dir = f'{root}/lip'
-    #     os.makedirs(lip_dir, exist_ok=True)
-    #     lip_path = os.path.join(lip_dir,
-    #                             Path(audio_path).stem+'.mp4')
-    #     if os.path.exists(lip_path) == False:
-    #         generate_lip_video(
-    #             "datadir/preprocess/driving_woman/face.pkl", audio_path, lip_path)
-    #     save_dir = os.path.join(root, Path(
-    #         image_input).parent.name+'_out')
-    #     os.makedirs(save_dir, exist_ok=True)
-    #     out_path = os.path.join(save_dir, 'result_' +
-    #                             Path(lip_path).stem+'.mp4')
-    #     if os.path.exists(out_path):
-    #         continue
-    #     make_image_animation_dataflow(
-    #         image_input, lip_path, out_path, 'ckpt/', use_crop=True, crf=10, face_data="datadir/preprocess/driving_woman/face.pkl", use_best=True)
-
-    root = '/home/yuan/hdd/06_01'
-    # face_data = "datadir/preprocess/driving_woman/face.pkl"
+    root = '/home/yuan/hdd/06_16'
     face_data = '/home/yuan/hdd/driving_video/model2/face.pkl'
     for audio_path in sorted(glob(f'{root}/audio/*')):
         image_input = f"{root}/img/0429_1-ok.png"
@@ -503,7 +463,7 @@ if __name__ == '__main__':
             generate_lip_video(
                 face_data, audio_path, lip_path)
         save_dir = os.path.join(root, Path(
-            image_input).parent.name+'_out')
+            image_input).parent.name+'_out',"new")
         os.makedirs(save_dir, exist_ok=True)
         out_path = os.path.join(save_dir, 'result_' +
                                 Path(audio_path).stem+'.mp4')
@@ -512,14 +472,35 @@ if __name__ == '__main__':
         make_image_animation_dataflow(
             image_input, lip_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
 
-    # file_list = os.listdir('/home/yuan/hdd/05_25/img_out')
-    # l_dir = '/home/yuan/hdd/05_25/img_out/'
-    # r_dir = '/home/yuan/hdd/05_25/img_out_tps/'
-    # o_dir = '/home/yuan/hdd/05_25/concat/'
-    # for file in file_list:
-    #     l = l_dir+file
-    #     r = r_dir+file
-    #     o = o_dir+file
-    #     if os.path.exists(o):
-    #         continue
-    #     concat_video(l, r, o)
+    img_root = '/home/yuan/hdd8t/stylegan_generate_img/select/yellow'
+    driving_path ='/home/yuan/hdd/06_01/lip/1.mp4'
+    face_data='/home/yuan/hdd/driving_video/model2/face.pkl'
+
+
+    img_root = '/home/yuan/hdd8t/stylegan_generate_img/select/western/0616'
+    driving_path ='/home/yuan/hdd/06_01/lip/1.mp4'
+    face_data='/home/yuan/hdd/driving_video/model2/face.pkl'
+    print(img_root)
+    for img_path in sorted(glob(f"{img_root}/*")):
+        save_dir="/home/yuan/hdd/06_15/western0616"
+        os.makedirs(save_dir,exist_ok=True)
+        out_path = os.path.join(save_dir, 'result_' +
+                                Path(img_path).stem+'.mp4')
+        if os.path.exists(out_path):
+            continue
+        make_image_animation_dataflow(
+            img_path, driving_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
+
+    img_root = '/home/yuan/hdd8t/stylegan_generate_img/select/western/artbreeder'
+    driving_path ='/home/yuan/hdd/06_01/lip/1.mp4'
+    face_data='/home/yuan/hdd/driving_video/model2/face.pkl'
+    print(img_root)
+    for img_path in sorted(glob(f"{img_root}/*")):
+        save_dir="/home/yuan/hdd/06_15/artbreeder0616"
+        os.makedirs(save_dir,exist_ok=True)
+        out_path = os.path.join(save_dir, 'result_' +
+                                Path(img_path).stem+'.mp4')
+        if os.path.exists(out_path):
+            continue
+        make_image_animation_dataflow(
+            img_path, driving_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
