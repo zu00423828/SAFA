@@ -125,7 +125,6 @@ def process_video(inp, output, image_shape=(256, 256), increase=0.1, iou_with_in
                     valid_trajectories.append(trajectory)
                 else:
                     not_valid_trajectories.append(trajectory)
-            # print("frame",i,"not trajectories",not_valid_trajectories)
             commands += compute_bbox_trajectories(not_valid_trajectories, fps, frame_shape,
                                                   inp, image_shape, min_frames, increase, output)  # return none
             trajectories = valid_trajectories
@@ -150,7 +149,6 @@ def process_video(inp, output, image_shape=(256, 256), increase=0.1, iou_with_in
                 else:
                     current_trajectory[3] = i
                     current_trajectory[1] = join(current_trajectory[1], bbox)
-            # print("frame",i,"trajecties",trajectories)
 
     except IndexError as e:
         raise (e)

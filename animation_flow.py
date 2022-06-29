@@ -446,11 +446,9 @@ def make_image_animation_dataflow(source_path, driving_origin_path, result_path,
 
 if __name__ == '__main__':
 
-
     from mock import generate_lip_video
     from pathlib import Path
     from glob import glob
-
 
     root = '/home/yuan/hdd/06_23_lin'
     face_data = '/home/yuan/hdd/driving_video/model2/face.pkl'
@@ -499,16 +497,16 @@ if __name__ == '__main__':
         except:
             pass
 
-    root ="/home/yuan/hdd/06_21"
+    root = "/home/yuan/hdd/06_21"
     # img_root = f'{root}/img'
     img_root = f'{root}/img'
-    driving_path =f'{root}/lip/2.mp4'
-    face_data='/home/yuan/hdd/driving_video/model2/face.pkl'
+    driving_path = f'{root}/lip/2.mp4'
+    face_data = '/home/yuan/hdd/driving_video/model2/face.pkl'
     # face_data='/home/yuan/hdd/driving_video/mayor/face.pkl'
     print(img_root)
     for img_path in sorted(glob(f"{img_root}/*")):
-        save_dir=f"{root}/out/model"
-        os.makedirs(save_dir,exist_ok=True)
+        save_dir = f"{root}/out/model"
+        os.makedirs(save_dir, exist_ok=True)
         out_path = os.path.join(save_dir, 'result_' +
                                 Path(img_path).stem+'.mp4')
         if os.path.exists(out_path):
