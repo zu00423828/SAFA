@@ -450,7 +450,7 @@ if __name__ == '__main__':
     from pathlib import Path
     from glob import glob
 
-    root = '/home/yuan/hdd/06_23_lin'
+    root = '/home/yuan/hdd/07_05'
     face_data = '/home/yuan/hdd/driving_video/model2/face.pkl'
     for audio_path in sorted(glob(f'{root}/audio/*')):
         image_input = f"{root}/img/0429_1-ok.png"
@@ -470,8 +470,8 @@ if __name__ == '__main__':
         try:
             make_image_animation_dataflow(
                 image_input, lip_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
-        except:
-            pass
+        except Exception as e:
+            print(e)
 
     root = '/home/yuan/hdd/06_27_kamil'
     face_data = '/home/yuan/hdd/driving_video/model2/face.pkl'
@@ -513,3 +513,22 @@ if __name__ == '__main__':
             continue
         make_image_animation_dataflow(
             img_path, driving_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
+
+    root = "/home/yuan/hdd/07_05"
+    img_root = f'{root}/img'
+    driving_path = f'{root}/lip/model2-no-sharpen.mp4'
+    face_data = '/home/yuan/hdd/driving_video/model2/face.pkl'
+    # face_data='/home/yuan/hdd/driving_video/mayor/face.pkl'
+    # face_data = f'{root}/face3.pkl'
+    print(img_root)
+    for img_path in sorted(glob(f"{img_root}/*")):
+        save_dir = f"{root}/out"
+        os.makedirs(save_dir, exist_ok=True)
+        out_path = os.path.join(save_dir, 'result' +
+                                Path(driving_path).stem+'.mp4')
+        if os.path.exists(out_path):
+            continue
+        make_image_animation_dataflow(
+            img_path, driving_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
+    # concat_video('/tmp/driving.mp4',
+    #              f"{root}/out/result_0429_1-ok.mp4", f"{root}/concat.mp4")
