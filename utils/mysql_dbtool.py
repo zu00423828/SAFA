@@ -275,7 +275,7 @@ class DBtools:
         connect, cursor = self.create_conn_cursor()
         # select_query = "SELECT id,comment FROM generate_job WHERE status !='finished' AND status!='error'"
         select_query = "SELECT id,comment FROM generate_job WHERE status NOT IN('finished','error') \
-            AND id NOT IN(SELECT IFNULL(generate_job_id,0) FROM processing_ticket) ORDER BY id ASC"
+            AND id NOT IN (SELECT IFNULL(generate_job_id,0) FROM processing_ticket) ORDER BY id ASC"
         cursor.execute(select_query)
         result = cursor.fetchone()
         if result is not None:
