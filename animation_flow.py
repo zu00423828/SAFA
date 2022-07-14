@@ -207,62 +207,6 @@ def paste_origin_video(source_origin_path, safa_video_path, temp_dir, landmark_p
     return out_video_path
 
 
-def video_gfpgan_process(origin_video_path, landmark_path, use_gfp=True, model_dir='ckpt'):
-    if use_gfp:
-        restorer = GFPGANer(
-            model_path=f'{model_dir}/GFPGANv1.3.pth',
-            upscale=2,
-            arch='clean',
-            channel_multiplier=2,
-            bg_upsampler=None)
-
-    full_video = cv2.VideoCapture(origin_video_path)
-    out_video_path = '/tmp/paste_temp.mp4'
-    h = int(full_video.get(4))
-    w = int(full_video.get(3))
-    fps = full_video.get(5)
-    out_video = cv2.VideoWriter(out_video_path, cv2.VideoWriter_fourcc(
-        *'XVID'), fps, (w, h))
-    lb = create_lb(4)
-    with open(landmark_path, 'rb') as f:
-        source_landmark = pickle.load(f)
-    # min(len(source_affine_landmark),len(drive_data_affine_landmark))
-    frame_count = int(full_video.get(7))
-    for i in trange(frame_count):
-        _, full_frame = full_video.read()
-        if source_landmark[i] is None:
-            full_out = full_frame.copy()
-        else:
-            enhance_img = full_frame.copy()
-            if use_gfp:
-                _, _, enhance_img = restorer.enhance(
-                    full_frame, has_aligned=False, only_center_face=False, paste_back=True)
-                enhance_img = cv2.resize(
-                    enhance_img, (full_frame.shape[1], full_frame.shape[0]))
-            x1, x2, y1, y2 = quantize_position(0, w, 0, h, 4)
-            mask = _cal_mouth_contour_mask(
-                source_landmark[i], y2, x2, None, 0.1)
-            if x2 > w or y2 > h:
-                full_frame = cv2.copyMakeBorder(full_frame, 0, max(
-                    0, y2-h), 0, max(0, x2-w), cv2.BORDER_CONSTANT, value=[255, 255, 255])
-                enhance_img = cv2.copyMakeBorder(enhance_img, 0, max(
-                    0, y2-h), 0, max(0, x2-w), cv2.BORDER_CONSTANT, value=[255, 255, 255])
-            mask_tesor = torch.tensor(
-                mask, dtype=torch.float32).permute(2, 0, 1).unsqueeze(0)
-            y_tensor = torch.tensor(
-                full_frame/255, dtype=torch.float32).permute(2, 0, 1).unsqueeze(0)
-            x_tensor = torch.tensor(
-                enhance_img/255, dtype=torch.float32).permute(2, 0, 1).unsqueeze(0)
-            out = lb(y_tensor, x_tensor, mask_tesor)
-            full_out = (out[0][:, :h, :w].permute(
-                1, 2, 0)*255).numpy().astype(np.uint8)
-        out_video.write(full_out)
-    out_video.release()
-    # out_video2.release()
-    full_video.release()
-    return out_video_path
-
-
 def blur_video_mouth(video_path, pkl, out_path, kernel=7):
     f = open(pkl, 'rb')
     landmarks = pickle.load(f)
