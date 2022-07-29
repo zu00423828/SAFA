@@ -355,7 +355,7 @@ def mouth_mask(video_path, ldmk_path, out_path):
     return out_path
 
 
-def make_image_animation_dataflow(source_path, driving_origin_path, result_path, model_dir, use_crop=False, crf=0, use_gfp=True, use_best=False, face_data=None):
+def make_image_animation_dataflow(source_path, driving_origin_path, result_path, model_dir, use_crop=False, crf=0, use_gfp=True, use_best=False, face_data=None, pre_enhance=False):
     config_path = f"{os.path.split(os.path.realpath(__file__))[0]}/config/end2end.yaml"
     if use_crop:
         print('crop driving video', flush=True)
@@ -366,8 +366,9 @@ def make_image_animation_dataflow(source_path, driving_origin_path, result_path,
         driving_video_path = driving_origin_path
     command = f"ffmpeg -y -i {driving_video_path} /tmp/temp.wav "
     subprocess.call(command, shell=True)
-    # driving_video_path = video_gpen_process(
-    #     driving_video_path, model_dir, out_video_path='/tmp/driving_enhace.mp4')
+    if pre_enhance:
+        driving_video_path = video_gpen_process(
+            driving_video_path, model_dir, out_video_path='/tmp/driving_enhace.mp4')
     print('create animation', flush=True)
     safa_model_path = f'{model_dir}/final_3DV.tar'
     safa_video = create_image_animation(source_path, driving_video_path, '/tmp/temp.mp4', config_path,
@@ -394,18 +395,19 @@ if __name__ == '__main__':
     from pathlib import Path
     from glob import glob
 
-    root = '/home/yuan/hdd/07_14'
+    root = '/home/yuan/hdd/07_27'
     face_data = '/home/yuan/hdd/driving_video/model2/face.pkl'
-    for audio_path in sorted(glob(f'{root}/audio/us/*')):
+    print("root", root)
+    for audio_path in sorted(glob(f'{root}/audio/*')):
         image_input = f"{root}/img/0429_1-ok.png"
-        lip_dir = f'{root}/lip_us'
+        lip_dir = f'{root}/lip'
         os.makedirs(lip_dir, exist_ok=True)
         lip_path = os.path.join(lip_dir, Path(audio_path).stem+'.mp4')
         if os.path.exists(lip_path) == False:
             generate_lip_video(
                 face_data, audio_path, lip_path)
         save_dir = os.path.join(root, Path(
-            image_input).parent.name+'_out_us',)
+            image_input).parent.name+'_out',)
         os.makedirs(save_dir, exist_ok=True)
         out_path = os.path.join(save_dir, 'result_' +
                                 Path(audio_path).stem+'.mp4')
@@ -416,3 +418,39 @@ if __name__ == '__main__':
                 image_input, lip_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
         except Exception as e:
             print(e)
+
+    root = '/home/yuan/hdd/07_25'
+    face_data = '/home/yuan/hdd/driving_video/model4/face.pkl'
+    lip_path = f"{root}/lip/us波德.mp4"
+    print(root)
+    for img_path in sorted(glob(f'{root}/img/*')):
+        save_dir = os.path.join(root, Path(
+            img_path).parent.name+'_out',)
+        os.makedirs(save_dir, exist_ok=True)
+        out_path = os.path.join(save_dir, 'result_' +
+                                Path(img_path).stem+'.mp4')
+        if os.path.exists(out_path):
+            continue
+        try:
+            make_image_animation_dataflow(
+                img_path, lip_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
+        except Exception as e:
+            print(e)
+
+    # root = '/home/yuan/hdd/07_25_jerry'
+    # face_data = '/home/yuan/hdd/driving_video/model4/face.pkl'
+    # lip_path = f"{root}/lip/model4-AI智能影像聲音.mp4"
+    # print(root)
+    # for img_path in sorted(glob(f'{root}/img/*')):
+    #     save_dir = os.path.join(root, Path(
+    #         img_path).parent.name+'_out_usebest',)
+    #     os.makedirs(save_dir, exist_ok=True)
+    #     out_path = os.path.join(save_dir, 'result_' +
+    #                             Path(img_path).stem+'.mp4')
+    #     if os.path.exists(out_path):
+    #         continue
+    #     try:
+    #         make_image_animation_dataflow(
+    #             img_path, lip_path, out_path, 'ckpt/', use_crop=True, face_data=face_data, use_best=True, pre_enhance=True)
+    #     except Exception as e:
+    #         print(e)

@@ -281,7 +281,7 @@ class DBtools:
         if result is not None:
             select_query = "SELECT gj.id,video.path video_path ,audio.path audio_path,video.id ,audio.id,gj.out_crf,\
                 gj.enhance,image.generate_image_content image_content,image.filename image_filename,\
-                video.filename video_filename,audio.filename audio_filename ,gj.comment\
+                video.filename video_filename,audio.filename audio_filename ,gj.comment \
                 FROM generate_job as gj \
                 LEFT JOIN  image ON gj.image_id =image.id \
                 INNER JOIN video ON gj.video_id=video.id \

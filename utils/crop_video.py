@@ -101,7 +101,7 @@ def process_video(inp, output, image_shape=(256, 256), increase=0.1, iou_with_in
     fps = video.get_meta_data()['fps']
     duration = video.get_meta_data()['duration']
     commands = []
-    # min_frames = min(int(fps*duration) // 2, len(bbox_list)//2)
+    min_frames = min(int(fps*duration) // 2, len(bbox_list)//2)
     try:
         for i, frame in enumerate(tqdm(video, total=int(fps*duration))):
             frame_shape = frame.shape
