@@ -94,14 +94,18 @@ def process_video(inp, output, image_shape=(256, 256), increase=0.1, iou_with_in
         fa = face_alignment.FaceAlignment(
             face_alignment.LandmarksType._2D, flip_input=False, device=device)
     else:
-        df = pd.read_pickle(face_data)
-        bbox_list = df['bbox']
+        df: pd.DataFrame = pd.read_pickle(face_data)
+        if 'bbox' in df.columns.values:
+            bbox_list = df['bbox']
+        else:
+            bbox_list = df[['crop_x0', 'crop_y0', 'crop_x1', 'crop_y1']].values
     trajectories = []
     previous_frame = None
     fps = video.get_meta_data()['fps']
     duration = video.get_meta_data()['duration']
     commands = []
-    min_frames = min(int(fps*duration) // 2, len(bbox_list)//2)
+    # min(int(fps*duration) // 2, len(bbox_list)//2)
+    min_frames = int(fps*duration) // 2
     try:
         for i, frame in enumerate(tqdm(video, total=int(fps*duration))):
             frame_shape = frame.shape

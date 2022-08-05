@@ -237,6 +237,26 @@ def blur_video_mouth(video_path, pkl, out_path, kernel=7):
     return out_path
 
 
+def sharpen_video(video_path, out_path, kernel_size=(5, 5), sigma=1.0, amount=.5, threshold=0.0):
+    video = cv2.VideoCapture(video_path)
+    h = int(video.get(4))
+    w = int(video.get(3))
+    fps = video.get(5)
+    out_video = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(
+        *'XVID'), fps, (w, h))
+    for _ in range(int(video.get(7))):
+        _, frame = video.read()
+        blurred = cv2.GaussianBlur(frame, kernel_size, sigma)
+        sharpened = float(amount + 1) * frame - float(amount) * blurred
+        sharpened = np.maximum(sharpened, np.zeros(sharpened.shape))
+        sharpened = np.minimum(sharpened, 255 * np.ones(sharpened.shape))
+        sharpened = sharpened.round().astype(np.uint8)
+        if threshold > 0:
+            low_contrast_mask = np.absolute(frame - blurred) < threshold
+            np.copyto(sharpened, frame, where=low_contrast_mask)
+        out_video.write(sharpened)
+
+
 def video_gpen_process(origin_video_path, model_dir, out_video_path='/tmp/paste_temp.mp4'):
     processer = FaceEnhancement(base_dir=model_dir, in_size=512, model='GPEN-BFR-512', sr_scale=2,
                                 use_sr=False, sr_model=None)
@@ -394,16 +414,15 @@ if __name__ == '__main__':
     from mock import generate_lip_video
     from pathlib import Path
     from glob import glob
-
-    root = '/home/yuan/hdd/07_27'
-    face_data = '/home/yuan/hdd/driving_video/model2/face.pkl'
+    root = '/home/yuan/hdd/08_05'
+    face_data = '/home/yuan/hdd/driving_video/model2-ebt/face.pkl'
     print("root", root)
     for audio_path in sorted(glob(f'{root}/audio/*')):
         image_input = f"{root}/img/0429_1-ok.png"
         lip_dir = f'{root}/lip'
         os.makedirs(lip_dir, exist_ok=True)
         lip_path = os.path.join(lip_dir, Path(audio_path).stem+'.mp4')
-        if os.path.exists(lip_path) == False:
+        if not os.path.exists(lip_path):
             generate_lip_video(
                 face_data, audio_path, lip_path)
         save_dir = os.path.join(root, Path(
@@ -418,12 +437,11 @@ if __name__ == '__main__':
                 image_input, lip_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
         except Exception as e:
             print(e)
-
-    root = '/home/yuan/hdd/07_25'
-    face_data = '/home/yuan/hdd/driving_video/model4/face.pkl'
-    lip_path = f"{root}/lip/us波德.mp4"
+    root = '/home/yuan/hdd/08_05_test'
+    face_data = '/home/yuan/hdd/driving_video/model2-ebt/face.pkl'
+    lip_path = f"{root}/lip/張今_模擬_40秒介紹_英文_SC230AS.mp4"
     print(root)
-    for img_path in sorted(glob(f'{root}/img/*')):
+    for img_path in sorted(glob(f'{root}/img/0429_1-ok.png')):
         save_dir = os.path.join(root, Path(
             img_path).parent.name+'_out',)
         os.makedirs(save_dir, exist_ok=True)

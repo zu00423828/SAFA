@@ -68,13 +68,13 @@ class OcclusionAwareGenerator(nn.Module):
             self.__setattr__('conv{}'.format(str(i).zfill(2)), nn.Sequential(
             nn.Conv2d(in_features, in_features//num_dilation_group, kernel_size=3, dilation=dilation_rates[i], padding=dilation_rates[i]),
             nn.BatchNorm2d(in_features//num_dilation_group, affine=True),
-            nn.ReLU())
+            nn.ReLU(True))
             )
 
         self.concat_conv = nn.Sequential(
                 nn.Conv2d(in_features*2, in_features, kernel_size=3, padding=1),
                 nn.BatchNorm2d(in_features, affine=True),
-                nn.ReLU()
+                nn.ReLU(True)
                 )
 
     def deform_input(self, inp, deformation):

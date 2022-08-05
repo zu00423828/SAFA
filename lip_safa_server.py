@@ -1,7 +1,9 @@
 from uuid import uuid4
 from animation_flow import make_image_animation_dataflow
-from w2l.utils.face_detect import detect_face_and_dump_from_video
-from w2l.utils.generate import generate_video
+# from w2l.utils.face_detect import detect_face_and_dump_from_video
+# from w2l.utils.generate import generate_video
+from ebt.utils.preprocess import dump_for_inference
+from ebt.scripts.inference import generate_video
 import torch
 import time
 import os
@@ -51,15 +53,16 @@ def lip_process(sess, job, preprocess_dir, video_dir, audio_dir, GENERATE_BATCH_
         print('preprocessing', flush=True)
         dbtools.update_job_progress(
             job['id'], Status.preprocessing.value, 25)
-        face_config = detect_face_and_dump_from_video(
-            video_path, dumpdir)
+        # face_config = detect_face_and_dump_from_video(
+        #     video_path, dumpdir)
+        face_config = dump_for_inference(video_path, dumpdir)
         torch.cuda.empty_cache()
     audio_path = check_audio(job['audio_path'], audio_dir)
     dbtools.update_job_progress(
         job['id'], Status.lipsyncing.value, 50)
     print('lipsyncing', flush=True)
     generate_video(face_config, audio_path, os.environ['LIP_MODEL_PATH'],
-                   '/tmp/lip.mp4', batch_size=GENERATE_BATCH_SIZE)
+                   '/tmp/finish.mp4', batch_size=GENERATE_BATCH_SIZE)
     torch.cuda.empty_cache()
     filename = uuid4().hex
     result_path = f"/tmp/finish.mp4"
@@ -86,15 +89,19 @@ def safa_process(sess, job, preprocess_dir, video_dir, audio_dir, GENERATE_BATCH
         print('preprocessing', flush=True)
         dbtools.update_job_progress(
             job['id'], Status.preprocessing.value, 25)
-        face_config = detect_face_and_dump_from_video(
-            video_path, dumpdir)
+        # face_config = detect_face_and_dump_from_video(
+        #     video_path, dumpdir)
+        face_config = dump_for_inference(video_path, dumpdir)
         torch.cuda.empty_cache()
     audio_path = check_audio(job['audio_path'], audio_dir)
     dbtools.update_job_progress(
         job['id'], Status.lipsyncing.value, 50)
     print('lipsyncing', flush=True)
-    generate_video(face_config, audio_path, os.environ['LIP_MODEL_PATH'],
-                   '/tmp/lip.mp4', batch_size=GENERATE_BATCH_SIZE)
+    # generate_video(face_config, audio_path, os.environ['LIP_MODEL_PATH'],
+    #                '/tmp/lip.mp4', batch_size=GENERATE_BATCH_SIZE)
+    generate_video(face_config, audio_path,
+                   output_path='/tmp/lip.mp4', model_path=os.environ['EBT_MODEL_PATH'], exp_model_path=os.environ["EXP_MODEL_PATH"])
+
     torch.cuda.empty_cache()
     filename = uuid4().hex
     result_path = f"/tmp/finish.mp4"
