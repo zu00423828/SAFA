@@ -55,7 +55,8 @@ def lip_process(sess, job, preprocess_dir, video_dir, audio_dir, GENERATE_BATCH_
             job['id'], Status.preprocessing.value, 25)
         # face_config = detect_face_and_dump_from_video(
         #     video_path, dumpdir)
-        face_config = dump_for_inference(video_path, dumpdir)
+        face_config = dump_for_inference(
+            video_path, dumpdir, tdmm_model_path=os.environ['TDMM_MODEL_PATH'])
         torch.cuda.empty_cache()
     audio_path = check_audio(job['audio_path'], audio_dir)
     dbtools.update_job_progress(
