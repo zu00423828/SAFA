@@ -273,6 +273,7 @@ def video_gpen_process(origin_video_path, model_dir, out_video_path='/tmp/paste_
             frame, aligned=False)
         img_out = cv2.resize(img_out, (w, h))
         out_video.write(img_out)
+    print(origin_video_path, out_video_path)
     return out_video_path
 
 
@@ -380,7 +381,7 @@ def make_image_animation_dataflow(source_path, driving_origin_path, result_path,
     if use_crop:
         print('crop driving video', flush=True)
         driving_video_path = process_video(
-            driving_origin_path, '/tmp/driving.mp4', min_frames=15, face_data=face_data)
+            driving_origin_path, '/tmp/driving.mp4', min_frames=15, face_data=face_data, increase=-0.1)
         torch.cuda.empty_cache()
     else:
         driving_video_path = driving_origin_path
@@ -404,6 +405,7 @@ def make_image_animation_dataflow(source_path, driving_origin_path, result_path,
     # paste_video_path = video_gfpgan_process(
     #     safa_video, ldmk_path, use_gfp, model_dir=model_dir)
     paste_video_path = video_gpen_process(safa_video, model_dir)
+    torch.cuda.empty_cache()
     # -preset veryslow
     command = f"ffmpeg -y -i {paste_video_path} -i /tmp/temp.wav  -crf  {crf} -vcodec h264  {result_path} "
     subprocess.call(command, shell=True)
@@ -414,61 +416,52 @@ if __name__ == '__main__':
     from mock import generate_lip_video
     from pathlib import Path
     from glob import glob
-    root = '/home/yuan/hdd/08_05'
+    import time
+    root = '/home/yuan/hdd/08_08'
     face_data = '/home/yuan/hdd/driving_video/model2-ebt/face.pkl'
     print("root", root)
-    for audio_path in sorted(glob(f'{root}/audio/*')):
-        image_input = f"{root}/img/0429_1-ok.png"
-        lip_dir = f'{root}/lip'
-        os.makedirs(lip_dir, exist_ok=True)
-        lip_path = os.path.join(lip_dir, Path(audio_path).stem+'.mp4')
-        if not os.path.exists(lip_path):
-            generate_lip_video(
-                face_data, audio_path, lip_path)
-        save_dir = os.path.join(root, Path(
-            image_input).parent.name+'_out',)
-        os.makedirs(save_dir, exist_ok=True)
-        out_path = os.path.join(save_dir, 'result_' +
-                                Path(audio_path).stem+'.mp4')
-        if os.path.exists(out_path):
-            continue
-        try:
-            make_image_animation_dataflow(
-                image_input, lip_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
-        except Exception as e:
-            print(e)
-    root = '/home/yuan/hdd/08_05_test'
-    face_data = '/home/yuan/hdd/driving_video/model2-ebt/face.pkl'
-    lip_path = f"{root}/lip/張今_模擬_40秒介紹_英文_SC230AS.mp4"
-    print(root)
-    for img_path in sorted(glob(f'{root}/img/0429_1-ok.png')):
-        save_dir = os.path.join(root, Path(
-            img_path).parent.name+'_out',)
-        os.makedirs(save_dir, exist_ok=True)
-        out_path = os.path.join(save_dir, 'result_' +
-                                Path(img_path).stem+'.mp4')
-        if os.path.exists(out_path):
-            continue
-        try:
-            make_image_animation_dataflow(
-                img_path, lip_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
-        except Exception as e:
-            print(e)
+    reset_list = ['振蕭/BSD-Series', '振蕭/SD-Series', '揚大/02-CNC-Vertical-Milling-Center-M-Series',
+                  '揚大/05-CNC-Vertical-Milling-Center-S-Series', '揚大/11-CNC-45-degrees-Slant-Bed-Lathe', '揚大/12-Vertical-Universal-Grinder', '光大/P1', '光大/P2', '光大/P3', '光大/P4']
+    for reset_item in reset_list:
+        print(reset_item)
+        for audio_path in sorted(glob(f'{root}/audio/{reset_item}/*')):
+            image_input = f"{root}/img/0429_1-ok.png"
+            lip_dir = f'{root}/lip/{reset_item}'
+            os.makedirs(lip_dir, exist_ok=True)
+            lip_path = os.path.join(lip_dir, Path(
+                audio_path).stem.replace(' ', '-')+'.mp4')
+            if not os.path.exists(lip_path):
+                generate_lip_video(
+                    face_data, audio_path, lip_path)
+                torch.cuda.empty_cache()
+            save_dir = os.path.join(root, Path(
+                image_input).parent.name+'_out', reset_item)
+            os.makedirs(save_dir, exist_ok=True)
+            out_path = os.path.join(save_dir, 'result_' +
+                                    Path(audio_path).stem+'.mp4')
+            if os.path.exists(out_path):
+                continue
+            try:
+                st = time.time()
+                make_image_animation_dataflow(
+                    image_input, lip_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
+                torch.cuda.empty_cache()
+                print(time.time()-st)
+            except Exception as e:
+                print(e)
 
-    # root = '/home/yuan/hdd/07_25_jerry'
-    # face_data = '/home/yuan/hdd/driving_video/model4/face.pkl'
-    # lip_path = f"{root}/lip/model4-AI智能影像聲音.mp4"
-    # print(root)
-    # for img_path in sorted(glob(f'{root}/img/*')):
-    #     save_dir = os.path.join(root, Path(
-    #         img_path).parent.name+'_out_usebest',)
-    #     os.makedirs(save_dir, exist_ok=True)
-    #     out_path = os.path.join(save_dir, 'result_' +
-    #                             Path(img_path).stem+'.mp4')
-    #     if os.path.exists(out_path):
-    #         continue
-    #     try:
-    #         make_image_animation_dataflow(
-    #             img_path, lip_path, out_path, 'ckpt/', use_crop=True, face_data=face_data, use_best=True, pre_enhance=True)
-    #     except Exception as e:
-    #         print(e)
+    face_data = '/home/yuan/hdd/driving_video/model2-ebt/face.pkl'
+    root = '/home/yuan/hdd/08_10'
+    image_input = f"{root}/img/0429_1-ok.png"
+    lip_path = f'{root}/lip/01-CNC-Milling-YT-2000-and-2500-SM.mp4'
+    save_dir = os.path.join(root, Path(
+        image_input).parent.name+'_out')
+    os.makedirs(save_dir, exist_ok=True)
+    out_path = os.path.join(save_dir, 'result_' +
+                            Path(image_input).stem+'.mp4')
+    try:
+        st = time.time()
+        make_image_animation_dataflow(
+            image_input, lip_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
+    except Exception as e:
+        print(e)

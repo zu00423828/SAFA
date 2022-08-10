@@ -14,7 +14,7 @@ class OcclusionAwareGenerator(nn.Module):
 
     def __init__(self, num_channels, num_kp, block_expansion, max_features, num_down_blocks,
                  num_bottleneck_blocks, estimate_occlusion_map=False, dense_motion_params=None, estimate_jacobian=False,
-                 blend_scale=1, num_dilation_group=4, dilation_rates=[1,2,4,8]):
+                 blend_scale=1, num_dilation_group=4, dilation_rates=[1, 2, 4, 8]):
         super(OcclusionAwareGenerator, self).__init__()
         print("blend_scale: ", blend_scale)
 
@@ -25,31 +25,39 @@ class OcclusionAwareGenerator(nn.Module):
         else:
             self.dense_motion_network = None
 
-        self.first = SameBlock2d(num_channels, block_expansion, kernel_size=(7, 7), padding=(3, 3))
+        self.first = SameBlock2d(
+            num_channels, block_expansion, kernel_size=(7, 7), padding=(3, 3))
 
         down_blocks = []
         for i in range(num_down_blocks):
             in_features = min(max_features, block_expansion * (2 ** i))
             out_features = min(max_features, block_expansion * (2 ** (i + 1)))
-            down_blocks.append(DownBlock2d(in_features, out_features, kernel_size=(3, 3), padding=(1, 1)))
+            down_blocks.append(DownBlock2d(
+                in_features, out_features, kernel_size=(3, 3), padding=(1, 1)))
         self.down_blocks = nn.ModuleList(down_blocks)
 
         up_blocks = []
         for i in range(num_down_blocks):
-            in_features = min(max_features, block_expansion * (2 ** (num_down_blocks - i)))
-            out_features = min(max_features, block_expansion * (2 ** (num_down_blocks - i - 1)))
+            in_features = min(max_features, block_expansion *
+                              (2 ** (num_down_blocks - i)))
+            out_features = min(max_features, block_expansion *
+                               (2 ** (num_down_blocks - i - 1)))
             #up_blocks.append(UpBlock2d(in_features, out_features, kernel_size=(3, 3), padding=(1, 1)))
             # We can also inject the driving 3DMM code to the upblock, see GADEUpBlock2d in util.py for details.
-            up_blocks.append(GADEUpBlock2d(in_features, out_features, kernel_size=(3, 3), padding=(1, 1)))
+            up_blocks.append(GADEUpBlock2d(
+                in_features, out_features, kernel_size=(3, 3), padding=(1, 1)))
         self.up_blocks = nn.ModuleList(up_blocks)
 
         self.bottleneck = torch.nn.Sequential()
-        in_features = min(max_features, block_expansion * (2 ** num_down_blocks))
+        in_features = min(max_features, block_expansion *
+                          (2 ** num_down_blocks))
 
         for i in range(num_bottleneck_blocks):
-            self.bottleneck.add_module('r' + str(i), ResBlock2d(in_features, kernel_size=(3, 3), padding=(1, 1)))
+            self.bottleneck.add_module(
+                'r' + str(i), ResBlock2d(in_features, kernel_size=(3, 3), padding=(1, 1)))
 
-        self.final = nn.Conv2d(block_expansion, num_channels, kernel_size=(7, 7), padding=(3, 3))
+        self.final = nn.Conv2d(block_expansion, num_channels,
+                               kernel_size=(7, 7), padding=(3, 3))
         self.estimate_occlusion_map = estimate_occlusion_map
         self.num_channels = num_channels
 
@@ -61,33 +69,36 @@ class OcclusionAwareGenerator(nn.Module):
         self.fc_1 = nn.Linear(1280, in_features)
         self.fc_2 = nn.Linear(1280, in_features)
 
-        self.context_atten_layer = ContextualAttention(ksize=3, stride=1, rate=2, fuse_k=3, softmax_scale=10, fuse=True)
+        self.context_atten_layer = ContextualAttention(
+            ksize=3, stride=1, rate=2, fuse_k=3, softmax_scale=10, fuse=True)
 
         self.num_dilation_group = num_dilation_group
         for i in range(num_dilation_group):
             self.__setattr__('conv{}'.format(str(i).zfill(2)), nn.Sequential(
-            nn.Conv2d(in_features, in_features//num_dilation_group, kernel_size=3, dilation=dilation_rates[i], padding=dilation_rates[i]),
-            nn.BatchNorm2d(in_features//num_dilation_group, affine=True),
-            nn.ReLU(True))
+                nn.Conv2d(in_features, in_features//num_dilation_group, kernel_size=3,
+                          dilation=dilation_rates[i], padding=dilation_rates[i]),
+                nn.BatchNorm2d(in_features//num_dilation_group, affine=True),
+                nn.ReLU())
             )
 
         self.concat_conv = nn.Sequential(
-                nn.Conv2d(in_features*2, in_features, kernel_size=3, padding=1),
-                nn.BatchNorm2d(in_features, affine=True),
-                nn.ReLU(True)
-                )
+            nn.Conv2d(in_features*2, in_features, kernel_size=3, padding=1),
+            nn.BatchNorm2d(in_features, affine=True),
+            nn.ReLU()
+        )
 
     def deform_input(self, inp, deformation):
         _, h_old, w_old, _ = deformation.shape
         _, _, h, w = inp.shape
         if h_old != h or w_old != w:
             deformation = deformation.permute(0, 3, 1, 2)
-            deformation = F.interpolate(deformation, size=(h, w), mode='bilinear')
+            deformation = F.interpolate(
+                deformation, size=(h, w), mode='bilinear')
             deformation = deformation.permute(0, 2, 3, 1)
         return F.grid_sample(inp, deformation)
 
-    def forward(self, source_image, kp_driving=None, kp_source=None, render_ops=None, 
-                      blend_mask=None, driving_image=None, driving_features=None):
+    def forward(self, source_image, kp_driving=None, kp_source=None, render_ops=None,
+                blend_mask=None, driving_image=None, driving_features=None):
 
         # Encoder
         out = self.first(source_image)
@@ -97,7 +108,7 @@ class OcclusionAwareGenerator(nn.Module):
         # Transforming feature representation according to deformation and occlusion
         output_dict = {}
         if self.dense_motion_network is not None:
-            dense_motion = self.dense_motion_network(source_image=source_image, kp_source=kp_source, kp_driving=kp_driving, 
+            dense_motion = self.dense_motion_network(source_image=source_image, kp_source=kp_source, kp_driving=kp_driving,
                                                      render_ops=render_ops)
             output_dict['mask'] = dense_motion['mask']
             output_dict['sparse_deformed'] = dense_motion['sparse_deformed']
@@ -115,13 +126,16 @@ class OcclusionAwareGenerator(nn.Module):
 
             if occlusion_map1 is not None:
                 if out.shape[2] != occlusion_map1.shape[2] or out.shape[3] != occlusion_map1.shape[3]:
-                    occlusion_map1 = F.interpolate(occlusion_map1, size=out.shape[2:], mode='bilinear')
-                    occlusion_map2 = F.interpolate(occlusion_map2, size=out.shape[2:], mode='bilinear')
+                    occlusion_map1 = F.interpolate(
+                        occlusion_map1, size=out.shape[2:], mode='bilinear')
+                    occlusion_map2 = F.interpolate(
+                        occlusion_map2, size=out.shape[2:], mode='bilinear')
                 output_dict['occlusion_map1'] = occlusion_map1
                 output_dict['occlusion_map2'] = occlusion_map2
 
             output_dict['deformation'] = deformation
-            output_dict["deformed"] = self.deform_input(source_image, deformation)
+            output_dict["deformed"] = self.deform_input(
+                source_image, deformation)
 
         # Geometrically-Adaptive Denormalization (GADE) Layer
         code = driving_features['feature_vec']
@@ -164,7 +178,3 @@ class OcclusionAwareGenerator(nn.Module):
         output_dict["prediction"] = out
 
         return output_dict
-
-
-
-

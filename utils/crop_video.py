@@ -4,9 +4,10 @@ import face_alignment
 # import numpy
 from skimage import img_as_ubyte
 from skimage.transform import resize
-from tqdm import tqdm
+from tqdm import tqdm, trange
 import os
 import imageio
+import cv2
 import numpy as np
 import warnings
 import pandas as pd
@@ -89,7 +90,7 @@ def compute_bbox_trajectories(trajectories, fps, frame_shape, inp, image_shape, 
 
 
 def process_video(inp, output, image_shape=(256, 256), increase=0.1, iou_with_initial=0.25, min_frames=150, device='cuda', face_data=None):
-    video = imageio.get_reader(inp)
+    # video = imageio.get_reader(inp)
     if face_data is None:
         fa = face_alignment.FaceAlignment(
             face_alignment.LandmarksType._2D, flip_input=False, device=device)
@@ -101,15 +102,22 @@ def process_video(inp, output, image_shape=(256, 256), increase=0.1, iou_with_in
             bbox_list = df[['crop_x0', 'crop_y0', 'crop_x1', 'crop_y1']].values
     trajectories = []
     previous_frame = None
-    fps = video.get_meta_data()['fps']
-    duration = video.get_meta_data()['duration']
+    # fps = video.get_meta_data()['fps']
+    # duration = video.get_meta_data()['duration']
+    video = cv2.VideoCapture(inp)
+    fps = video.get(5)
+    frame_count = int(video.get(7))
+    frame_shape = (int(video.get(4)), int(video.get(3)), 3)
     commands = []
     # min(int(fps*duration) // 2, len(bbox_list)//2)
-    min_frames = int(fps*duration) // 2
+    # min_frames = int(fps*duration) // 2
+    min_frames = min(int(frame_count) // 2, len(bbox_list)//2)
     try:
-        for i, frame in enumerate(tqdm(video, total=int(fps*duration))):
-            frame_shape = frame.shape
+        # for i, frame in enumerate(tqdm(video, total=int(fps*duration))):
+        for i in trange(frame_count):
+            # frame_shape = frame.shape
             if face_data is None:
+                _, frame = video.read()
                 bboxes = extract_bbox(frame, fa)
             else:
                 if i >= len(bbox_list):

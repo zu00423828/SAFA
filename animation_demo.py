@@ -12,16 +12,50 @@ import imageio
 from tqdm import tqdm
 from argparse import ArgumentParser
 import yaml
+from torchvision import transforms
+from torch.utils.data import Dataset, DataLoader
 import matplotlib
 matplotlib.use('Agg')
+transform = transforms.Compose(
+    [transforms.ToTensor()])
 
 
-def normalize_kp(kp_source, kp_driving, kp_driving_initial):
+class AnimationDatset(Dataset):
+    def __init__(self, source_path, driving_path):
+        self.source = cv2.imread(source_path)
+        self.driving_video = cv2.VideoCapture(driving_path)
+        self.driving_init = None
+        self.length = int(self.driving_video.get(7))
+        self.fps = self.driving_video.get(5)
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, index):
+        _, frame = self.driving_video.read()
+        source = transform(cv2.resize(self.source, (256, 256)))
+        driving = transform(cv2.resize(frame, (256, 256)))
+        if self.driving_init is None:
+            self.driving_init = driving.clone()
+        return source, driving, self.driving_init
+
+
+def get_adapt_scale(kp_source, kp_driving_initial):
     source_area = ConvexHull(
-        kp_source['value'][0].data.cpu().numpy()).volume
+        kp_source['value'][0].cpu()).volume
     driving_area = ConvexHull(
-        kp_driving_initial['value'][0].data.cpu().numpy()).volume
+        kp_driving_initial['value'][0].cpu()).volume
     adapt_movement_scale = np.sqrt(source_area) / np.sqrt(driving_area)
+    return adapt_movement_scale
+
+
+# @torch.jit.script
+def normalize_kp(kp_source, kp_driving, kp_driving_initial, adapt_movement_scale):
+    # source_area = ConvexHull(
+    #     kp_source['value'][0].cpu()).volume
+    # driving_area = ConvexHull(
+    #     kp_driving_initial['value'][0].cpu()).volume
+    # adapt_movement_scale = np.sqrt(source_area) / np.sqrt(driving_area)
 
     kp_new = {k: v for k, v in kp_driving.items()}
 
@@ -263,11 +297,13 @@ def make_animation(source_image, driving_video,
     return predictions
 
 
-def make_animation_new(source_image, driving_reader,
+def make_animation_new(dl,
                        generator, kp_detector, tdmm, with_eye=False,
                        relative=True, adapt_movement_scale=True, cpu=False, result_video_path='/tmp/temp.mp4', fps=30, duration=100):
-    writer = imageio.get_writer(result_video_path, fps=fps)
     device = torch.device('cpu' if cpu else 'cuda')
+    out_video = cv2.VideoWriter(
+        result_video_path, cv2.VideoWriter_fourcc(*'XVID'), fps, (256, 256))
+    # out_video = imageio.get_writer(result_video_path, fps=fps)
 
     def batch_orth_proj(X, camera):
         camera = camera.clone().view(-1, 1, 3)
@@ -276,76 +312,68 @@ def make_animation_new(source_image, driving_reader,
         # shape = X_trans.shape
         Xn = (camera[:, :, 0:1] * X_trans)
         return Xn
-
+    source_t = None
+    driving_initial = None
+    pre_batch = None
     with torch.no_grad():
-        source = torch.tensor(source_image[np.newaxis].astype(
-            np.float32)).permute(0, 3, 1, 2)
+        for source, driving_frame, driving_init in tqdm(dl):
+            driving_frame = driving_frame.to(device)
+            kp_driving = kp_detector(driving_frame)
+            driving_codedict = tdmm.encode(driving_frame)
+            if pre_batch != source.shape[0]:
+                source_t = source.to(device)
+                kp_source = kp_detector(source_t)
+                source_codedict = tdmm.encode(source_t)
+                _, source_transformed_verts, _ = tdmm.decode_flame(
+                    source_codedict)
+                source_albedo = tdmm.extract_texture(
+                    source_t, source_transformed_verts, with_eye=with_eye)
+                driving_initial = driving_init.to(device)
+                kp_driving_initial = kp_detector(driving_initial)
+                driving_init_codedict = tdmm.encode(driving_initial)
+                adapt_scale = get_adapt_scale(kp_source, kp_driving_initial)
+                pre_batch = source.shape[0]
 
-        source = source.to(device)
-        kp_source = kp_detector(source)
-        source_codedict = tdmm.encode(source)
-        source_verts, source_transformed_verts, _ = tdmm.decode_flame(
-            source_codedict)
-        source_albedo = tdmm.extract_texture(
-            source, source_transformed_verts, with_eye=with_eye)
-        driving_initial = None
-        try:
-            for frame in tqdm(driving_reader, total=int(fps*duration)):
-                frame = resize(frame, (256, 256))[..., :3]
-                driving_frame = torch.tensor(frame[np.newaxis].astype(
-                    np.float32)).permute(0, 3, 1, 2)
-                driving_frame = driving_frame.to(device)
-                kp_driving = kp_detector(driving_frame)
-                driving_codedict = tdmm.encode(driving_frame)
-                if driving_initial is None:
-                    driving_initial = driving_frame.clone()
-                    kp_driving_initial = kp_detector(driving_initial)
-                    driving_init_codedict = tdmm.encode(driving_initial)
+            # calculate relative 3D motion in the code space
+            delta_shape = source_codedict['shape'] + \
+                driving_codedict['shape'] - \
+                driving_init_codedict['shape']
+            delta_exp = source_codedict['exp'] + \
+                driving_codedict['exp'] - driving_init_codedict['exp']
+            delta_pose = source_codedict['pose'] + \
+                driving_codedict['pose'] - \
+                driving_init_codedict['pose']
 
-                # calculate relative 3D motion in the code space
-                delta_shape = source_codedict['shape'] + \
-                    driving_codedict['shape'] - \
-                    driving_init_codedict['shape']
-                delta_exp = source_codedict['exp'] + \
-                    driving_codedict['exp'] - driving_init_codedict['exp']
-                delta_pose = source_codedict['pose'] + \
-                    driving_codedict['pose'] - \
-                    driving_init_codedict['pose']
+            delta_source_verts, _, _ = tdmm.flame(shape_params=delta_shape,
+                                                  expression_params=delta_exp,
+                                                  pose_params=delta_pose)
 
-                delta_source_verts, _, _ = tdmm.flame(shape_params=delta_shape,
-                                                      expression_params=delta_exp,
-                                                      pose_params=delta_pose)
+            delta_scale = source_codedict['cam'][:, 0:1] * \
+                driving_codedict['cam'][:, 0:1] / \
+                driving_init_codedict['cam'][:, 0:1]
+            delta_trans = source_codedict['cam'][:, 1:] + \
+                driving_codedict['cam'][:, 1:] - \
+                driving_init_codedict['cam'][:, 1:]
 
-                delta_scale = source_codedict['cam'][:, 0:1] * \
-                    driving_codedict['cam'][:, 0:1] / \
-                    driving_init_codedict['cam'][:, 0:1]
-                delta_trans = source_codedict['cam'][:, 1:] + \
-                    driving_codedict['cam'][:, 1:] - \
-                    driving_init_codedict['cam'][:, 1:]
+            delta_cam = torch.cat([delta_scale, delta_trans], dim=1)
+            delta_source_transformed_verts = batch_orth_proj(
+                delta_source_verts, delta_cam)
+            delta_source_transformed_verts[:, :, 1:] = - \
+                delta_source_transformed_verts[:, :, 1:]
 
-                delta_cam = torch.cat([delta_scale, delta_trans], dim=1)
-                delta_source_transformed_verts = batch_orth_proj(
-                    delta_source_verts, delta_cam)
-                delta_source_transformed_verts[:, :, 1:] = - \
-                    delta_source_transformed_verts[:, :, 1:]
+            render_ops = tdmm.render(
+                source_transformed_verts, delta_source_transformed_verts, source_albedo)
 
-                render_ops = tdmm.render(
-                    source_transformed_verts, delta_source_transformed_verts, source_albedo)
-
-                # calculate relative kp
-                kp_norm = normalize_kp(kp_source=kp_source, kp_driving=kp_driving,
-                                       kp_driving_initial=kp_driving_initial)
-                out = generator(source, kp_source=kp_source, kp_driving=kp_norm, render_ops=render_ops,
-                                driving_features=driving_codedict)
-
-                prediction = np.transpose(
-                    out['prediction'].cpu().numpy(), [0, 2, 3, 1])[0]
+            # calculate relative kp
+            kp_norm = normalize_kp(kp_source=kp_source, kp_driving=kp_driving,
+                                   kp_driving_initial=kp_driving_initial, adapt_movement_scale=adapt_scale)
+            out = generator(source_t, kp_source=kp_source, kp_driving=kp_norm, render_ops=render_ops,
+                            driving_features=driving_codedict)
+            for out_frame in out['prediction'].cpu():
+                prediction = np.transpose(out_frame.numpy(), (1, 2, 0))
                 prediction = (prediction*255).astype(np.uint8)
-                writer.append_data(prediction)
-        except Exception as e:
-            print(e)
-    driving_reader.close()
-    writer.close()
+                out_video.write(prediction)
+    out_video.release()
 
     # return predictions
 
@@ -417,36 +445,16 @@ def create_video_animation(source_video_pth, driving_video_pth, result_video_pth
     return result_video_pth
 
 
-def create_image_animation(source_image_pth, driving_video_pth, result_video_pth, config, checkpoint, with_eye, relative, adapt_scale, use_best_frame):
-    if source_image_pth is None:
-        source_image = laod_stylegan_avatar()
-    else:
-        source_image = imageio.imread(source_image_pth)
-    reader = imageio.get_reader(driving_video_pth)
-    fps = reader.get_meta_data()['fps']
-    duration = reader.get_meta_data()['duration']
-    source_image = resize(source_image, (256, 256))[..., :3]
+def create_image_animation(source_path, driving_path, out_video, config_path, model_path, with_eye, relative, adapt_scale, use_best_frame=False):
+    dataset = AnimationDatset(
+        source_path, driving_path)
     generator, kp_detector, tdmm = load_checkpoints(
-        config_path=config, checkpoint_path=checkpoint, cpu=False)
-    if use_best_frame:
-        driving = [resize(im, (256, 256))[..., :3] for im in reader]
-        i = find_best_frame(source_image, driving, fps, duration)
-        forward = driving[i:]
-        backward = driving[:(i+1)][::-1]
-        predict_forward = make_animation(
-            source_image, forward, generator, kp_detector, tdmm, with_eye, relative, adapt_scale)
-        predict_backward = make_animation(
-            source_image, backward, generator, kp_detector, tdmm, with_eye, relative, adapt_scale)
-        predictions = predict_backward[::-1] + predict_forward[1:]
-        imageio.mimsave(result_video_pth, [img_as_ubyte(
-            frame) for frame in predictions], fps=fps)
-        return result_video_pth
-    make_animation_new(source_image, reader,
-                       generator, kp_detector, tdmm, with_eye=with_eye,
-                       relative=relative, adapt_movement_scale=adapt_scale, cpu=False, result_video_path=result_video_pth, fps=fps, duration=duration)
-
-    return result_video_pth
-
+        config_path=config_path, checkpoint_path=model_path, cpu=False)
+    fps = dataset.fps
+    dl = DataLoader(dataset, batch_size=4, pin_memory=False)
+    make_animation_new(dl, generator, kp_detector, tdmm, with_eye=with_eye,
+                       relative=relative, adapt_movement_scale=adapt_scale, result_video_path=out_video, fps=fps)
+    return out_video
 
     # command=f"ffmpeg -y -i {driving_video_pth} temp.wav "
     # subprocess.call(command,shell=True)
