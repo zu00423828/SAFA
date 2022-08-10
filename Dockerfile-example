@@ -1,0 +1,51 @@
+FROM gaetanlandreau/pytorch3d:v0.0.1
+RUN apt-get update &&apt install -y --no-install-recommends libsndfile1 ffmpeg wget curl
+RUN apt-get install -y pkg-config libflac-dev libogg-dev libvorbis-dev libboost-dev swig
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata &&\
+    TZ=Asia/Taipei &&\
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
+    echo $TZ > /etc/timezone &&\
+    dpkg-reconfigure -f noninteractive tzdata 
+RUN conda init bash
+# RUN pip install torch==1.7.1+cu110 torchvision==0.8.2+cu110 torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
+RUN pip install torch==1.8.0+cu111 torchvision==0.9.0+cu111 torchaudio==0.8.0 -f https://download.pytorch.org/whl/torch_stable.html
+RUN git clone https://github.com/mychiux413/Wav2Lip.git && \
+    cd Wav2Lip && \
+    git checkout v0.2.1 && \
+    pip3 install -e .
+# RUN git clone https://github.com/TencentARC/GFPGAN.git && \
+# 	cd GFPGAN &&\
+# 	python setup.py develop
+RUN git clone https://github.com/zu00423828/GPEN.git && \
+    cd GPEN && \
+    git checkout develop && \
+    /root/miniconda3/bin/pip3 install -e .
+RUN pip install imageio imageio-ffmpeg matplotlib PyYAML scipy pillow pymysql dbutils google-cloud-storage chumpy
+RUN pip install ninja python-dotenv
+ADD https://www.adrianbulat.com/downloads/python-fan/s3fd-619a316812.pth /root/.cache/torch/hub/checkpoints/
+ADD https://www.adrianbulat.com/downloads/python-fan/2DFAN4-cd938726ad.zip  /root/.cache/torch/hub/checkpoints/2DFAN4-cd938726ad.zip
+ADD https://download.pytorch.org/models/mobilenet_v2-b0353104.pth  /root/.cache/torch/hub/checkpoints/mobilenet_v2-b0353104.pth
+# ADD https://github.com/xinntao/facexlib/releases/download/v0.1.0/detection_Resnet50_Final.pth /opt/conda/lib/python3.8/site-packages/facexlib-0.2.1.1-py3.8.egg/facexlib/weights/detection_Resnet50_Final.pth
+ADD https://github.com/xinntao/facexlib/releases/download/v0.1.0/detection_Resnet50_Final.pth /opt/conda/lib/python3.8/site-packages/facexlib/weights/detection_Resnet50_Final.pth
+
+ADD . /lip-safa-server
+WORKDIR /lip-safa-server
+ENV GOOGLE_APPLICATION_CREDENTIALS=""
+ENV LIP_MODEL_PATH=""
+ENV FACE_DETECT_BATCH_SIZE=8
+ENV GENERATE_BATCH_SIZE=1
+ENV DB_ADDR=""
+ENV DB_USER=""
+ENV DB_PASSWORD=""
+ENV DB_DBNAME=""
+ENV SSL_CA=""
+ENV SSL_KEY=""
+ENV SSL_CERT=""
+ENV GCS_BUCKET_NAME=""
+ENTRYPOINT python lip_safa_server.py >> /var/log/worker.log 2>&1
+
+
+
+
+
+

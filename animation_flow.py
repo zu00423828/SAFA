@@ -207,62 +207,6 @@ def paste_origin_video(source_origin_path, safa_video_path, temp_dir, landmark_p
     return out_video_path
 
 
-def video_gfpgan_process(origin_video_path, landmark_path, use_gfp=True, model_dir='ckpt'):
-    if use_gfp:
-        restorer = GFPGANer(
-            model_path=f'{model_dir}/GFPGANv1.3.pth',
-            upscale=2,
-            arch='clean',
-            channel_multiplier=2,
-            bg_upsampler=None)
-
-    full_video = cv2.VideoCapture(origin_video_path)
-    out_video_path = '/tmp/paste_temp.mp4'
-    h = int(full_video.get(4))
-    w = int(full_video.get(3))
-    fps = full_video.get(5)
-    out_video = cv2.VideoWriter(out_video_path, cv2.VideoWriter_fourcc(
-        *'XVID'), fps, (w, h))
-    lb = create_lb(4)
-    with open(landmark_path, 'rb') as f:
-        source_landmark = pickle.load(f)
-    # min(len(source_affine_landmark),len(drive_data_affine_landmark))
-    frame_count = int(full_video.get(7))
-    for i in trange(frame_count):
-        _, full_frame = full_video.read()
-        if source_landmark[i] is None:
-            full_out = full_frame.copy()
-        else:
-            enhance_img = full_frame.copy()
-            if use_gfp:
-                _, _, enhance_img = restorer.enhance(
-                    full_frame, has_aligned=False, only_center_face=False, paste_back=True)
-                enhance_img = cv2.resize(
-                    enhance_img, (full_frame.shape[1], full_frame.shape[0]))
-            x1, x2, y1, y2 = quantize_position(0, w, 0, h, 4)
-            mask = _cal_mouth_contour_mask(
-                source_landmark[i], y2, x2, None, 0.1)
-            if x2 > w or y2 > h:
-                full_frame = cv2.copyMakeBorder(full_frame, 0, max(
-                    0, y2-h), 0, max(0, x2-w), cv2.BORDER_CONSTANT, value=[255, 255, 255])
-                enhance_img = cv2.copyMakeBorder(enhance_img, 0, max(
-                    0, y2-h), 0, max(0, x2-w), cv2.BORDER_CONSTANT, value=[255, 255, 255])
-            mask_tesor = torch.tensor(
-                mask, dtype=torch.float32).permute(2, 0, 1).unsqueeze(0)
-            y_tensor = torch.tensor(
-                full_frame/255, dtype=torch.float32).permute(2, 0, 1).unsqueeze(0)
-            x_tensor = torch.tensor(
-                enhance_img/255, dtype=torch.float32).permute(2, 0, 1).unsqueeze(0)
-            out = lb(y_tensor, x_tensor, mask_tesor)
-            full_out = (out[0][:, :h, :w].permute(
-                1, 2, 0)*255).numpy().astype(np.uint8)
-        out_video.write(full_out)
-    out_video.release()
-    # out_video2.release()
-    full_video.release()
-    return out_video_path
-
-
 def blur_video_mouth(video_path, pkl, out_path, kernel=7):
     f = open(pkl, 'rb')
     landmarks = pickle.load(f)
@@ -293,6 +237,26 @@ def blur_video_mouth(video_path, pkl, out_path, kernel=7):
     return out_path
 
 
+def sharpen_video(video_path, out_path, kernel_size=(5, 5), sigma=1.0, amount=.5, threshold=0.0):
+    video = cv2.VideoCapture(video_path)
+    h = int(video.get(4))
+    w = int(video.get(3))
+    fps = video.get(5)
+    out_video = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(
+        *'XVID'), fps, (w, h))
+    for _ in range(int(video.get(7))):
+        _, frame = video.read()
+        blurred = cv2.GaussianBlur(frame, kernel_size, sigma)
+        sharpened = float(amount + 1) * frame - float(amount) * blurred
+        sharpened = np.maximum(sharpened, np.zeros(sharpened.shape))
+        sharpened = np.minimum(sharpened, 255 * np.ones(sharpened.shape))
+        sharpened = sharpened.round().astype(np.uint8)
+        if threshold > 0:
+            low_contrast_mask = np.absolute(frame - blurred) < threshold
+            np.copyto(sharpened, frame, where=low_contrast_mask)
+        out_video.write(sharpened)
+
+
 def video_gpen_process(origin_video_path, model_dir, out_video_path='/tmp/paste_temp.mp4'):
     processer = FaceEnhancement(base_dir=model_dir, in_size=512, model='GPEN-BFR-512', sr_scale=2,
                                 use_sr=False, sr_model=None)
@@ -309,6 +273,7 @@ def video_gpen_process(origin_video_path, model_dir, out_video_path='/tmp/paste_
             frame, aligned=False)
         img_out = cv2.resize(img_out, (w, h))
         out_video.write(img_out)
+    print(origin_video_path, out_video_path)
     return out_video_path
 
 
@@ -411,19 +376,20 @@ def mouth_mask(video_path, ldmk_path, out_path):
     return out_path
 
 
-def make_image_animation_dataflow(source_path, driving_origin_path, result_path, model_dir, use_crop=False, crf=0, use_gfp=True, use_best=False, face_data=None):
+def make_image_animation_dataflow(source_path, driving_origin_path, result_path, model_dir, use_crop=False, crf=0, use_gfp=True, use_best=False, face_data=None, pre_enhance=False):
     config_path = f"{os.path.split(os.path.realpath(__file__))[0]}/config/end2end.yaml"
     if use_crop:
         print('crop driving video', flush=True)
         driving_video_path = process_video(
-            driving_origin_path, '/tmp/driving.mp4', min_frames=15, face_data=face_data)
+            driving_origin_path, '/tmp/driving.mp4', min_frames=15, face_data=face_data, increase=-0.1)
         torch.cuda.empty_cache()
     else:
         driving_video_path = driving_origin_path
     command = f"ffmpeg -y -i {driving_video_path} /tmp/temp.wav "
     subprocess.call(command, shell=True)
-    # driving_video_path = video_gpen_process(
-    #     driving_video_path, model_dir, out_video_path='/tmp/driving_enhace.mp4')
+    if pre_enhance:
+        driving_video_path = video_gpen_process(
+            driving_video_path, model_dir, out_video_path='/tmp/driving_enhace.mp4')
     print('create animation', flush=True)
     safa_model_path = f'{model_dir}/final_3DV.tar'
     safa_video = create_image_animation(source_path, driving_video_path, '/tmp/temp.mp4', config_path,
@@ -439,6 +405,7 @@ def make_image_animation_dataflow(source_path, driving_origin_path, result_path,
     # paste_video_path = video_gfpgan_process(
     #     safa_video, ldmk_path, use_gfp, model_dir=model_dir)
     paste_video_path = video_gpen_process(safa_video, model_dir)
+    torch.cuda.empty_cache()
     # -preset veryslow
     command = f"ffmpeg -y -i {paste_video_path} -i /tmp/temp.wav  -crf  {crf} -vcodec h264  {result_path} "
     subprocess.call(command, shell=True)
@@ -446,61 +413,55 @@ def make_image_animation_dataflow(source_path, driving_origin_path, result_path,
 
 if __name__ == '__main__':
 
-
     from mock import generate_lip_video
     from pathlib import Path
     from glob import glob
+    import time
+    root = '/home/yuan/hdd/08_08'
+    face_data = '/home/yuan/hdd/driving_video/model2-ebt/face.pkl'
+    print("root", root)
+    reset_list = ['振蕭/BSD-Series', '振蕭/SD-Series', '揚大/02-CNC-Vertical-Milling-Center-M-Series',
+                  '揚大/05-CNC-Vertical-Milling-Center-S-Series', '揚大/11-CNC-45-degrees-Slant-Bed-Lathe', '揚大/12-Vertical-Universal-Grinder', '光大/P1', '光大/P2', '光大/P3', '光大/P4']
+    for reset_item in reset_list:
+        print(reset_item)
+        for audio_path in sorted(glob(f'{root}/audio/{reset_item}/*')):
+            image_input = f"{root}/img/0429_1-ok.png"
+            lip_dir = f'{root}/lip/{reset_item}'
+            os.makedirs(lip_dir, exist_ok=True)
+            lip_path = os.path.join(lip_dir, Path(
+                audio_path).stem.replace(' ', '-')+'.mp4')
+            if not os.path.exists(lip_path):
+                generate_lip_video(
+                    face_data, audio_path, lip_path)
+                torch.cuda.empty_cache()
+            save_dir = os.path.join(root, Path(
+                image_input).parent.name+'_out', reset_item)
+            os.makedirs(save_dir, exist_ok=True)
+            out_path = os.path.join(save_dir, 'result_' +
+                                    Path(audio_path).stem+'.mp4')
+            if os.path.exists(out_path):
+                continue
+            try:
+                st = time.time()
+                make_image_animation_dataflow(
+                    image_input, lip_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
+                torch.cuda.empty_cache()
+                print(time.time()-st)
+            except Exception as e:
+                print(e)
 
-
-    root = '/home/yuan/hdd/06_16'
-    face_data = '/home/yuan/hdd/driving_video/model2/face.pkl'
-    for audio_path in sorted(glob(f'{root}/audio/*')):
-        image_input = f"{root}/img/0429_1-ok.png"
-        lip_dir = f'{root}/lip'
-        os.makedirs(lip_dir, exist_ok=True)
-        lip_path = os.path.join(lip_dir, Path(audio_path).stem+'.mp4')
-        if os.path.exists(lip_path) == False:
-            generate_lip_video(
-                face_data, audio_path, lip_path)
-        save_dir = os.path.join(root, Path(
-            image_input).parent.name+'_out',"new")
-        os.makedirs(save_dir, exist_ok=True)
-        out_path = os.path.join(save_dir, 'result_' +
-                                Path(audio_path).stem+'.mp4')
-        if os.path.exists(out_path):
-            continue
+    face_data = '/home/yuan/hdd/driving_video/model2-ebt/face.pkl'
+    root = '/home/yuan/hdd/08_10'
+    image_input = f"{root}/img/0429_1-ok.png"
+    lip_path = f'{root}/lip/01-CNC-Milling-YT-2000-and-2500-SM.mp4'
+    save_dir = os.path.join(root, Path(
+        image_input).parent.name+'_out')
+    os.makedirs(save_dir, exist_ok=True)
+    out_path = os.path.join(save_dir, 'result_' +
+                            Path(image_input).stem+'.mp4')
+    try:
+        st = time.time()
         make_image_animation_dataflow(
             image_input, lip_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
-
-    img_root = '/home/yuan/hdd8t/stylegan_generate_img/select/yellow'
-    driving_path ='/home/yuan/hdd/06_01/lip/1.mp4'
-    face_data='/home/yuan/hdd/driving_video/model2/face.pkl'
-
-
-    img_root = '/home/yuan/hdd8t/stylegan_generate_img/select/western/0616'
-    driving_path ='/home/yuan/hdd/06_01/lip/1.mp4'
-    face_data='/home/yuan/hdd/driving_video/model2/face.pkl'
-    print(img_root)
-    for img_path in sorted(glob(f"{img_root}/*")):
-        save_dir="/home/yuan/hdd/06_15/western0616"
-        os.makedirs(save_dir,exist_ok=True)
-        out_path = os.path.join(save_dir, 'result_' +
-                                Path(img_path).stem+'.mp4')
-        if os.path.exists(out_path):
-            continue
-        make_image_animation_dataflow(
-            img_path, driving_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
-
-    img_root = '/home/yuan/hdd8t/stylegan_generate_img/select/western/artbreeder'
-    driving_path ='/home/yuan/hdd/06_01/lip/1.mp4'
-    face_data='/home/yuan/hdd/driving_video/model2/face.pkl'
-    print(img_root)
-    for img_path in sorted(glob(f"{img_root}/*")):
-        save_dir="/home/yuan/hdd/06_15/artbreeder0616"
-        os.makedirs(save_dir,exist_ok=True)
-        out_path = os.path.join(save_dir, 'result_' +
-                                Path(img_path).stem+'.mp4')
-        if os.path.exists(out_path):
-            continue
-        make_image_animation_dataflow(
-            img_path, driving_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
+    except Exception as e:
+        print(e)

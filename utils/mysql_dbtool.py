@@ -275,13 +275,13 @@ class DBtools:
         connect, cursor = self.create_conn_cursor()
         # select_query = "SELECT id,comment FROM generate_job WHERE status !='finished' AND status!='error'"
         select_query = "SELECT id,comment FROM generate_job WHERE status NOT IN('finished','error') \
-            AND id NOT IN(SELECT IFNULL(generate_job_id,0) FROM processing_ticket) ORDER BY id ASC"
+            AND id NOT IN (SELECT IFNULL(generate_job_id,0) FROM processing_ticket) ORDER BY id ASC"
         cursor.execute(select_query)
         result = cursor.fetchone()
         if result is not None:
             select_query = "SELECT gj.id,video.path video_path ,audio.path audio_path,video.id ,audio.id,gj.out_crf,\
                 gj.enhance,image.generate_image_content image_content,image.filename image_filename,\
-                video.filename video_filename,audio.filename audio_filename ,gj.comment\
+                video.filename video_filename,audio.filename audio_filename ,gj.comment \
                 FROM generate_job as gj \
                 LEFT JOIN  image ON gj.image_id =image.id \
                 INNER JOIN video ON gj.video_id=video.id \
