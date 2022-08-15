@@ -76,7 +76,7 @@ def compute_bbox(start, end, fps, tube_bbox, frame_shape, inp, image_shape, outp
     scale = f'{image_shape[0]}:{image_shape[1]}'
 
     # return f'ffmpeg -i {inp} -ss {start} -t {time} -filter:v "crop={w}:{h}:{left}:{top}, scale={scale}" crop.mp4'
-    return f'ffmpeg  -y -i {inp}  -filter:v "crop={w}:{h}:{left}:{top}, scale={scale}" {output}'
+    return f'ffmpeg -hwaccel cuvid -y -i {inp} -vcodec h264_nvenc  -filter:v "crop={w}:{h}:{left}:{top}, scale={scale}" {output}'
 
 
 def compute_bbox_trajectories(trajectories, fps, frame_shape, inp, image_shape, min_frames, increase, output):
@@ -98,6 +98,7 @@ def process_video(inp, output, image_shape=(256, 256), increase=0.1, iou_with_in
         df: pd.DataFrame = pd.read_pickle(face_data)
         if 'bbox' in df.columns.values:
             bbox_list = df['bbox']
+            increase = 0.1
         else:
             bbox_list = df[['crop_x0', 'crop_y0', 'crop_x1', 'crop_y1']].values
     trajectories = []

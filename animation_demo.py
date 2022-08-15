@@ -22,7 +22,11 @@ transform = transforms.Compose(
 
 class AnimationDatset(Dataset):
     def __init__(self, source_path, driving_path):
-        self.source = cv2.imread(source_path)
+        if isinstance(source_path, str):
+            self.source = cv2.imread(source_path)
+        else:
+            r = np.frombuffer(source_path, np.uint8)
+            self.source = cv2.imdecode(r, cv2.IMREAD_COLOR)
         self.driving_video = cv2.VideoCapture(driving_path)
         self.driving_init = None
         self.length = int(self.driving_video.get(7))
@@ -297,8 +301,7 @@ def make_animation(source_image, driving_video,
     return predictions
 
 
-def make_animation_new(dl,
-                       generator, kp_detector, tdmm, with_eye=False,
+def make_animation_new(dl, generator, kp_detector, tdmm, with_eye=False,
                        relative=True, adapt_movement_scale=True, cpu=False, result_video_path='/tmp/temp.mp4', fps=30, duration=100):
     device = torch.device('cpu' if cpu else 'cuda')
     out_video = cv2.VideoWriter(
@@ -451,7 +454,7 @@ def create_image_animation(source_path, driving_path, out_video, config_path, mo
     generator, kp_detector, tdmm = load_checkpoints(
         config_path=config_path, checkpoint_path=model_path, cpu=False)
     fps = dataset.fps
-    dl = DataLoader(dataset, batch_size=4, pin_memory=False)
+    dl = DataLoader(dataset, batch_size=4, pin_memory=True)
     make_animation_new(dl, generator, kp_detector, tdmm, with_eye=with_eye,
                        relative=relative, adapt_movement_scale=adapt_scale, result_video_path=out_video, fps=fps)
     return out_video

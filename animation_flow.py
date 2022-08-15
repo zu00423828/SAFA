@@ -12,6 +12,8 @@ import subprocess
 from tqdm import trange
 from utils.crop_video import process_video
 from gpen.face_enhancement import FaceEnhancement
+from gpen.face_model.face_gan import FaceGAN
+from functools import partial
 
 
 def concat_video(left, right, out_path):
@@ -260,6 +262,8 @@ def sharpen_video(video_path, out_path, kernel_size=(5, 5), sigma=1.0, amount=.5
 def video_gpen_process(origin_video_path, model_dir, out_video_path='/tmp/paste_temp.mp4'):
     processer = FaceEnhancement(base_dir=model_dir, in_size=512, model='GPEN-BFR-512', sr_scale=2,
                                 use_sr=False, sr_model=None)
+    # model = FaceGAN(model_dir, 512, None, 'GPEN-BFR-512',
+    #                 2, 1, None, device='cuda')
     full_video = cv2.VideoCapture(origin_video_path)
     h = int(full_video.get(4))
     w = int(full_video.get(3))
@@ -272,8 +276,14 @@ def video_gpen_process(origin_video_path, model_dir, out_video_path='/tmp/paste_
         img_out, _, _ = processer.process(
             frame, aligned=False)
         img_out = cv2.resize(img_out, (w, h))
+        # img = cv2.resize(frame, (512, 512))
+        # img_out = model.process(img)
+        # img_out = cv2.resize(img_out, (w, h))
+        # mask = np.zeros([h+2, w+2], np.uint8)
+        # cv2.floodFill(img_out, mask, (0, 0), (255, 255, 255), (
+        #     50, 50, 50), (50, 50, 50), cv2.FLOODFILL_FIXED_RANGE)
         out_video.write(img_out)
-    print(origin_video_path, out_video_path)
+    # print(origin_video_path, out_video_path)
     return out_video_path
 
 
@@ -407,7 +417,8 @@ def make_image_animation_dataflow(source_path, driving_origin_path, result_path,
     paste_video_path = video_gpen_process(safa_video, model_dir)
     torch.cuda.empty_cache()
     # -preset veryslow
-    command = f"ffmpeg -y -i {paste_video_path} -i /tmp/temp.wav  -crf  {crf} -vcodec h264  {result_path} "
+    # command = f"ffmpeg -y -i {paste_video_path} -i /tmp/temp.wav  -crf  {crf} -vcodec h264  {result_path} "
+    command = f"ffmpeg   -y -i {paste_video_path} -i /tmp/temp.wav -vcodec h264_nvenc  {result_path}"
     subprocess.call(command, shell=True)
 
 
@@ -417,14 +428,14 @@ if __name__ == '__main__':
     from pathlib import Path
     from glob import glob
     import time
-    root = '/home/yuan/hdd/08_08'
+    root = '/home/yuan/hdd/08_11'
     face_data = '/home/yuan/hdd/driving_video/model2-ebt/face.pkl'
     print("root", root)
-    reset_list = ['振蕭/BSD-Series', '振蕭/SD-Series', '揚大/02-CNC-Vertical-Milling-Center-M-Series',
-                  '揚大/05-CNC-Vertical-Milling-Center-S-Series', '揚大/11-CNC-45-degrees-Slant-Bed-Lathe', '揚大/12-Vertical-Universal-Grinder', '光大/P1', '光大/P2', '光大/P3', '光大/P4']
+    reset_list = ['DN-Series']
     for reset_item in reset_list:
         print(reset_item)
         for audio_path in sorted(glob(f'{root}/audio/{reset_item}/*')):
+            st = time.time()
             image_input = f"{root}/img/0429_1-ok.png"
             lip_dir = f'{root}/lip/{reset_item}'
             os.makedirs(lip_dir, exist_ok=True)
@@ -438,11 +449,11 @@ if __name__ == '__main__':
                 image_input).parent.name+'_out', reset_item)
             os.makedirs(save_dir, exist_ok=True)
             out_path = os.path.join(save_dir, 'result_' +
-                                    Path(audio_path).stem+'.mp4')
+                                    Path(lip_path).stem+'.mp4')
             if os.path.exists(out_path):
                 continue
             try:
-                st = time.time()
+
                 make_image_animation_dataflow(
                     image_input, lip_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
                 torch.cuda.empty_cache()
@@ -450,18 +461,57 @@ if __name__ == '__main__':
             except Exception as e:
                 print(e)
 
-    face_data = '/home/yuan/hdd/driving_video/model2-ebt/face.pkl'
-    root = '/home/yuan/hdd/08_10'
+    # root = '/home/yuan/hdd/08_12'
+    # face_data = '/home/yuan/hdd/driving_video/model2/face.pkl'
+    # print("root", root)
+    # for audio_path in sorted(glob(f'{root}/audio/*')):
+    #     st = time.time()
+    #     image_input = f"{root}/img/0429_1-ok.png"
+    #     lip_dir = f'{root}/lip'
+    #     os.makedirs(lip_dir, exist_ok=True)
+    #     lip_path = os.path.join(lip_dir, Path(
+    #         audio_path).stem+'.mp4')
+    #     if not os.path.exists(lip_path):
+    #         generate_lip_video(
+    #             face_data, audio_path, lip_path)
+    #         torch.cuda.empty_cache()
+    #     save_dir = os.path.join(root, Path(
+    #         image_input).parent.name+'_out')
+    #     os.makedirs(save_dir, exist_ok=True)
+    #     out_path = os.path.join(save_dir, 'result_' +
+    #                             Path(audio_path).stem+'.mp4')
+    #     if os.path.exists(out_path):
+    #         continue
+    #     try:
+
+    #         make_image_animation_dataflow(
+    #             image_input, lip_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
+    #         torch.cuda.empty_cache()
+    #         print(time.time()-st)
+    #     except Exception as e:
+    #         print(e)
+
+    face_data = '/home/yuan/hdd/driving_video/model2/face.pkl'
+    root = '/home/yuan/hdd/08_12'
     image_input = f"{root}/img/0429_1-ok.png"
-    lip_path = f'{root}/lip/01-CNC-Milling-YT-2000-and-2500-SM.mp4'
+    audio_path = f'{root}/audio/en.wav'
+    lip_dir = f'{root}/lip'
+    os.makedirs(lip_dir, exist_ok=True)
+    lip_path = os.path.join(lip_dir, Path(
+        audio_path).stem+'.mp4')
+    if not os.path.exists(lip_path):
+        generate_lip_video(
+            face_data, audio_path, lip_path)
+        torch.cuda.empty_cache()
     save_dir = os.path.join(root, Path(
         image_input).parent.name+'_out')
     os.makedirs(save_dir, exist_ok=True)
     out_path = os.path.join(save_dir, 'result_' +
-                            Path(image_input).stem+'.mp4')
+                            Path(image_input).stem+'-1.mp4')
     try:
         st = time.time()
         make_image_animation_dataflow(
             image_input, lip_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
+        print(time.time()-st)
     except Exception as e:
         print(e)
