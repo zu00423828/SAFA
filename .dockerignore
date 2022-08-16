@@ -6,3 +6,8 @@ datadir/audio/
 temp/
 # .git
 pytorch3d/
+ckpt/exp-transfer_checkpoint_step000380000.pth
+ckpt/generator_checkpoint_step000250000.pth
+ckpt/tdmm-220623.pth
+ckpt/GFPGANCleanv1-NoCE-C2.pth
+ckpt/GFPGANv1.3.pth

@@ -1,11 +1,17 @@
 FROM gaetanlandreau/pytorch3d:v0.0.1
 RUN apt-get update &&apt install -y --no-install-recommends libsndfile1 ffmpeg wget curl
 RUN apt-get install -y pkg-config libflac-dev libogg-dev libvorbis-dev libboost-dev swig
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata &&\
-    TZ=Asia/Taipei &&\
+RUN wget http://security.ubuntu.com/ubuntu/pool/main/t/tzdata/tzdata_2022a-0ubuntu0.18.04_all.deb
+RUN dpkg -i  tzdata_2022a-0ubuntu0.18.04_all.deb
+RUN  TZ=Asia/Taipei &&\
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
     echo $TZ > /etc/timezone &&\
     dpkg-reconfigure -f noninteractive tzdata 
+# RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata &&\
+#     TZ=Asia/Taipei &&\
+#     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
+#     echo $TZ > /etc/timezone &&\
+#     dpkg-reconfigure -f noninteractive tzdata 
 RUN conda init bash
 # RUN pip install torch==1.7.1+cu110 torchvision==0.8.2+cu110 torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
 RUN pip install torch==1.8.0+cu111 torchvision==0.9.0+cu111 torchaudio==0.8.0 -f https://download.pytorch.org/whl/torch_stable.html
@@ -19,7 +25,7 @@ RUN git clone https://github.com/mychiux413/Wav2Lip.git && \
 RUN git clone https://github.com/zu00423828/GPEN.git && \
     cd GPEN && \
     git checkout develop && \
-    /root/miniconda3/bin/pip3 install -e .
+    pip3 install -e .
 RUN pip install imageio imageio-ffmpeg matplotlib PyYAML scipy pillow pymysql dbutils google-cloud-storage chumpy
 RUN pip install ninja python-dotenv
 ADD https://www.adrianbulat.com/downloads/python-fan/s3fd-619a316812.pth /root/.cache/torch/hub/checkpoints/

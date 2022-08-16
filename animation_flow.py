@@ -12,7 +12,7 @@ import subprocess
 from tqdm import trange
 from utils.crop_video import process_video
 from gpen.face_enhancement import FaceEnhancement
-from gpen.face_model.face_gan import FaceGAN
+# from gpen.face_model.face_gan import FaceGAN
 from functools import partial
 
 
@@ -417,8 +417,8 @@ def make_image_animation_dataflow(source_path, driving_origin_path, result_path,
     paste_video_path = video_gpen_process(safa_video, model_dir)
     torch.cuda.empty_cache()
     # -preset veryslow
-    # command = f"ffmpeg -y -i {paste_video_path} -i /tmp/temp.wav  -crf  {crf} -vcodec h264  {result_path} "
-    command = f"ffmpeg   -y -i {paste_video_path} -i /tmp/temp.wav -vcodec h264_nvenc  {result_path}"
+    command = f"ffmpeg -y -i {paste_video_path} -i /tmp/temp.wav  -crf  {crf} -vcodec h264  {result_path} "
+    # command = f"ffmpeg   -y -i {paste_video_path} -i /tmp/temp.wav -vcodec h264_nvenc  {result_path}"
     subprocess.call(command, shell=True)
 
 

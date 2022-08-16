@@ -75,8 +75,8 @@ def compute_bbox(start, end, fps, tube_bbox, frame_shape, inp, image_shape, outp
 
     scale = f'{image_shape[0]}:{image_shape[1]}'
 
-    # return f'ffmpeg -i {inp} -ss {start} -t {time} -filter:v "crop={w}:{h}:{left}:{top}, scale={scale}" crop.mp4'
-    return f'ffmpeg -hwaccel cuvid -y -i {inp} -vcodec h264_nvenc  -filter:v "crop={w}:{h}:{left}:{top}, scale={scale}" {output}'
+    # return f'ffmpeg -y -i {inp} -ss {start} -t {time} -filter:v "crop={w}:{h}:{left}:{top}, scale={scale}" {output}'
+    return f'ffmpeg -y -i {inp} -vcodec h264_nvenc  -filter:v "crop={w}:{h}:{left}:{top}, scale={scale}" {output}'
 
 
 def compute_bbox_trajectories(trajectories, fps, frame_shape, inp, image_shape, min_frames, increase, output):
