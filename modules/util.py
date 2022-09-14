@@ -56,9 +56,9 @@ class ResBlock2d(nn.Module):
     def __init__(self, in_features, kernel_size, padding):
         super(ResBlock2d, self).__init__()
         self.conv1 = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=kernel_size,
-                            padding=padding)
+                               padding=padding)
         self.conv2 = nn.Conv2d(in_channels=in_features, out_channels=in_features, kernel_size=kernel_size,
-                            padding=padding)
+                               padding=padding)
         self.norm1 = nn.BatchNorm2d(in_features, affine=True)
         self.norm2 = nn.BatchNorm2d(in_features, affine=True)
 
@@ -109,7 +109,8 @@ class GADEUpBlock2d(nn.Module):
         self.fc_1 = nn.Linear(z_size, out_features)
         self.fc_2 = nn.Linear(z_size, out_features)
 
-        self.conv_f = nn.Conv2d(out_features, out_features, kernel_size=3, stride=1, padding=1)
+        self.conv_f = nn.Conv2d(
+            out_features, out_features, kernel_size=3, stride=1, padding=1)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x, z):
@@ -177,7 +178,8 @@ class Encoder(nn.Module):
         down_blocks = []
         for i in range(num_blocks):
             down_blocks.append(DownBlock2d(in_features if i == 0 else min(max_features, block_expansion * (2 ** i)),
-                                           min(max_features, block_expansion * (2 ** (i + 1))),
+                                           min(max_features,
+                                               block_expansion * (2 ** (i + 1))),
                                            kernel_size=3, padding=1))
         self.down_blocks = nn.ModuleList(down_blocks)
 
@@ -199,9 +201,11 @@ class Decoder(nn.Module):
         up_blocks = []
 
         for i in range(num_blocks)[::-1]:
-            in_filters = (1 if i == num_blocks - 1 else 2) * min(max_features, block_expansion * (2 ** (i + 1)))
+            in_filters = (1 if i == num_blocks - 1 else 2) * \
+                min(max_features, block_expansion * (2 ** (i + 1)))
             out_filters = min(max_features, block_expansion * (2 ** i))
-            up_blocks.append(UpBlock2d(in_filters, out_filters, kernel_size=3, padding=1))
+            up_blocks.append(
+                UpBlock2d(in_filters, out_filters, kernel_size=3, padding=1))
 
         self.up_blocks = nn.ModuleList(up_blocks)
         self.out_filters = block_expansion + in_features
@@ -222,8 +226,10 @@ class Hourglass(nn.Module):
 
     def __init__(self, block_expansion, in_features, num_blocks=3, max_features=256):
         super(Hourglass, self).__init__()
-        self.encoder = Encoder(block_expansion, in_features, num_blocks, max_features)
-        self.decoder = Decoder(block_expansion, in_features, num_blocks, max_features)
+        self.encoder = Encoder(
+            block_expansion, in_features, num_blocks, max_features)
+        self.decoder = Decoder(
+            block_expansion, in_features, num_blocks, max_features)
         self.out_filters = self.decoder.out_filters
 
     def forward(self, x):
@@ -234,6 +240,7 @@ class AntiAliasInterpolation2d(nn.Module):
     """
     Band-limited downsampling, for better preservation of the input signal.
     """
+
     def __init__(self, channels, scale):
         super(AntiAliasInterpolation2d, self).__init__()
         sigma = (1 / scale - 1) / 2
@@ -250,7 +257,7 @@ class AntiAliasInterpolation2d(nn.Module):
             [
                 torch.arange(size, dtype=torch.float32)
                 for size in kernel_size
-                ]
+            ]
         )
         for size, std, mgrid in zip(kernel_size, sigma, meshgrids):
             mean = (size - 1) / 2
@@ -290,9 +297,9 @@ class mymobilenetv2(nn.Module):
         self.fc.bias.data.zero_()
 
         self.model.classifier = nn.Sequential(
-                           self.dropout,
-                           self.fc,
-                           )
+            self.dropout,
+            self.fc,
+        )
         self.scale_factor = 224.0 / image_size
         if self.scale_factor != 1:
             self.down = AntiAliasInterpolation2d(3, self.scale_factor)
@@ -307,7 +314,8 @@ class mymobilenetv2(nn.Module):
         for i in range(18):
             feature = self.model.features[i+1](feature)
 
-        feature = nn.functional.adaptive_avg_pool2d(feature, 1).reshape(feature.shape[0], -1)
+        feature = nn.functional.adaptive_avg_pool2d(
+            feature, 1).reshape(feature.shape[0], -1)
         code = self.model.classifier(feature)
         return code, feature
 
@@ -316,6 +324,7 @@ class ContextualAttention(nn.Module):
     """
     Borrowed from https://github.com/daa233/generative-inpainting-pytorch/blob/master/model/networks.py
     """
+
     def __init__(self, ksize=3, stride=1, rate=1, fuse_k=3, softmax_scale=10, fuse=True):
         super(ContextualAttention, self).__init__()
         self.ksize = ksize
@@ -326,7 +335,8 @@ class ContextualAttention(nn.Module):
         self.fuse = fuse
 
         if self.fuse:
-            fuse_weight = torch.eye(fuse_k).view(1, 1, fuse_k, fuse_k)  # 1*1*k*k
+            fuse_weight = torch.eye(fuse_k).view(
+                1, 1, fuse_k, fuse_k)  # 1*1*k*k
             self.register_buffer('fuse_weight', fuse_weight)
 
     def forward(self, f, b, mask):
@@ -352,7 +362,7 @@ class ContextualAttention(nn.Module):
         kernel = 2 * self.rate
         # raw_w is extracted for reconstruction
         raw_w = extract_image_patches(b, ksizes=[kernel, kernel],
-                                      strides=[self.rate*self.stride, 
+                                      strides=[self.rate*self.stride,
                                                self.rate*self.stride],
                                       rates=[1, 1],
                                       padding='same')
@@ -366,7 +376,8 @@ class ContextualAttention(nn.Module):
         b = F.interpolate(b, scale_factor=1./self.rate, mode='nearest')
         int_fs = list(f.size())
         int_bs = list(b.size())
-        f_groups = torch.split(f, 1, dim=0)  # split tensors along the batch dimension
+        # split tensors along the batch dimension
+        f_groups = torch.split(f, 1, dim=0)
 
         w = extract_image_patches(b, ksizes=[self.ksize, self.ksize],
                                   strides=[self.stride, self.stride],
@@ -397,7 +408,8 @@ class ContextualAttention(nn.Module):
             '''
             # conv for compare
             wi = wi[0]
-            max_wi = torch.sqrt(reduce_sum(torch.pow(wi, 2) + 1e-4, axis=[1, 2, 3], keepdim=True))
+            max_wi = torch.sqrt(reduce_sum(
+                torch.pow(wi, 2) + 1e-4, axis=[1, 2, 3], keepdim=True))
             wi_normed = wi / max_wi
             xi = same_padding(xi, [self.ksize, self.ksize], [1, 1], [1, 1])
 
@@ -406,14 +418,19 @@ class ContextualAttention(nn.Module):
             if self.fuse:
                 # make all of depth to spatial resolution
                 yi = yi.view(1, 1, int_bs[2]*int_bs[3], int_fs[2]*int_fs[3])
-                yi = same_padding(yi, [self.fuse_k, self.fuse_k], [1, 1], [1, 1])
+                yi = same_padding(
+                    yi, [self.fuse_k, self.fuse_k], [1, 1], [1, 1])
                 yi = F.conv2d(yi, self.fuse_weight, stride=1)
-                yi = yi.contiguous().view(1, int_bs[2], int_bs[3], int_fs[2], int_fs[3])
+                yi = yi.contiguous().view(
+                    1, int_bs[2], int_bs[3], int_fs[2], int_fs[3])
                 yi = yi.permute(0, 2, 1, 4, 3)
-                yi = yi.contiguous().view(1, 1, int_bs[2]*int_bs[3], int_fs[2]*int_fs[3])
-                yi = same_padding(yi, [self.fuse_k, self.fuse_k], [1, 1], [1, 1])
+                yi = yi.contiguous().view(
+                    1, 1, int_bs[2]*int_bs[3], int_fs[2]*int_fs[3])
+                yi = same_padding(
+                    yi, [self.fuse_k, self.fuse_k], [1, 1], [1, 1])
                 yi = F.conv2d(yi, self.fuse_weight, stride=1)
-                yi = yi.contiguous().view(1, int_bs[3], int_bs[2], int_fs[3], int_fs[2])
+                yi = yi.contiguous().view(
+                    1, int_bs[3], int_bs[2], int_fs[3], int_fs[2])
                 yi = yi.permute(0, 2, 1, 4, 3).contiguous()
             yi = yi.view(1, int_bs[2] * int_bs[3], int_fs[2], int_fs[3])
 
@@ -424,7 +441,8 @@ class ContextualAttention(nn.Module):
 
             # deconv for patch pasting
             wi_center = raw_wi[0]
-            yi = F.conv_transpose2d(yi, wi_center, stride=self.rate, padding=1) / 4.0
+            yi = F.conv_transpose2d(
+                yi, wi_center, stride=self.rate, padding=1) / 4.0
             y.append(yi)
 
         y = torch.cat(y, dim=0)
@@ -436,7 +454,7 @@ class ContextualAttention(nn.Module):
 def extract_image_patches(images, ksizes, strides, rates, padding='same'):
     """
     Borrowed from https://github.com/daa233/generative-inpainting-pytorch/blob/master/utils/tools.py
-    
+
     Extract patches from images and put them in the C output dimension.
     :param padding:
     :param images: [batch, channels, in_rows, in_cols]. A 4-D Tensor with shape
@@ -488,6 +506,7 @@ def same_padding(images, ksizes, strides, rates):
     images = torch.nn.ZeroPad2d(paddings)(images)
     return images
 
+
 def reduce_mean(x, axis=None, keepdim=False):
     """
     Borrowed from https://github.com/daa233/generative-inpainting-pytorch/blob/master/utils/tools.py
@@ -498,6 +517,7 @@ def reduce_mean(x, axis=None, keepdim=False):
         x = torch.mean(x, dim=i, keepdim=keepdim)
     return x
 
+
 def reduce_sum(x, axis=None, keepdim=False):
     """
     Borrowed from https://github.com/daa233/generative-inpainting-pytorch/blob/master/utils/tools.py
@@ -507,4 +527,3 @@ def reduce_sum(x, axis=None, keepdim=False):
     for i in sorted(axis, reverse=True):
         x = torch.sum(x, dim=i, keepdim=keepdim)
     return x
-

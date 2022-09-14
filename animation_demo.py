@@ -372,13 +372,21 @@ def make_animation_new(dl, generator, kp_detector, tdmm, with_eye=False,
                                    kp_driving_initial=kp_driving_initial, adapt_movement_scale=adapt_scale)
             out = generator(source_t, kp_source=kp_source, kp_driving=kp_norm, render_ops=render_ops,
                             driving_features=driving_codedict)
-            for out_frame in out['prediction'].cpu():
-                prediction = np.transpose(out_frame.numpy(), (1, 2, 0))
-                prediction = (prediction*255).astype(np.uint8)
+            # for out_frame in out['prediction'].cpu():
+            #     prediction = np.transpose(out_frame.numpy(), (1, 2, 0))
+            #     prediction = (prediction*255).astype(np.uint8)
+            #     out_video.write(prediction)
+            # for out_frame in (out['prediction']*255).permute(0, 2, 3, 1).cpu().numpy():
+            for prediction in tensor2numpy(out['prediction']):
+                # prediction = out_frame.astype(np.uint8)
                 out_video.write(prediction)
     out_video.release()
 
     # return predictions
+
+
+def tensor2numpy(predtict_tensor: torch.Tensor) -> np.ndarray:
+    return predtict_tensor.mul(255).permute(0, 2, 3, 1).cpu().numpy().astype(np.uint8)
 
 
 def find_best_frame(source, driving, fps, duratuin, cpu=False):
