@@ -124,6 +124,7 @@ class DBtools:
             youtube_url TEXT,
             youtube_title VARCHAR(255) UNIQUE DEFAULT NULL,
             youtube_description TEXT,
+            priority BOOLEAN NOT NULL DEFAULT false,
             FOREIGN KEY(client_id) REFERENCES client(id) ON DELETE CASCADE ON UPDATE CASCADE,
             UNIQUE KEY unique_item (image_id, video_id, audio_id, out_crf, enhance)
              ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'''
@@ -273,9 +274,10 @@ class DBtools:
 
     def get_job_join(self):
         connect, cursor = self.create_conn_cursor()
-        # select_query = "SELECT id,comment FROM generate_job WHERE status !='finished' AND status!='error'"
+        # select_query = "SELECT id,comment FROM generate_job WHERE status NOT IN('finished','error') \
+        #     AND id NOT IN (SELECT IFNULL(generate_job_id,0) FROM processing_ticket) ORDER BY id ASC"
         select_query = "SELECT id,comment FROM generate_job WHERE status NOT IN('finished','error') \
-            AND id NOT IN (SELECT IFNULL(generate_job_id,0) FROM processing_ticket) ORDER BY id ASC"
+            AND id NOT IN (SELECT IFNULL(generate_job_id,0) FROM processing_ticket) ORDER BY priority DESC, id ASC"
         cursor.execute(select_query)
         result = cursor.fetchone()
         if result is not None:

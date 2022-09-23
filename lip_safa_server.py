@@ -139,16 +139,16 @@ def worker(data_dir):
     os.makedirs(audio_dir, exist_ok=True)
     print('server init', flush=True)
     # init video2 db and upload gcs#
-    account = 'share'
-    try:
-        add_client(account)
-    except Exception as e:
-        print(e, flush=True)
-    account = 'share'
-    client_id = dbtools.get_data(
-        'client', f"account='{account}'", all=False)['id']
-    add_video2db(client_id, 'mock_dir/driving_man.mp4', '')
-    add_video2db(client_id, 'mock_dir/driving_woman.mp4', '')
+    # account = 'share'
+    # try:
+    #     add_client(account)
+    # except Exception as e:
+    #     print(e, flush=True)
+    # account = 'share'
+    # client_id = dbtools.get_data(
+    #     'client', f"account='{account}'", all=False)['id']
+    # add_video2db(client_id, 'mock_dir/driving_man.mp4', '')
+    # add_video2db(client_id, 'mock_dir/driving_woman.mp4', '')
 
     with dbtools.session() as sess:
         print('ticket_id:', sess.processing_ticket_id, flush=True)

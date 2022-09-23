@@ -7,7 +7,7 @@ from animation_demo import create_image_animation
 import subprocess
 from tqdm import trange
 from utils.crop_video import process_video
-from gpen.face_enhancement import FaceEnhancement
+# from gpen.face_enhancement import FaceEnhancement
 from gpen.face_model.face_gan import FaceGAN
 
 
@@ -54,10 +54,10 @@ def check(dir):
 
 
 def video_gpen_process(origin_video_path, model_dir, out_video_path='/tmp/paste_temp.mp4'):
-    processer = FaceEnhancement(base_dir=model_dir, in_size=512, model='GPEN-BFR-512', sr_scale=2,
-                                use_sr=False, sr_model=None)
-    # model = FaceGAN(model_dir, 512, None, 'GPEN-BFR-512',
-    #                 2, 1, None, device='cuda')
+    # processer = FaceEnhancement(base_dir=model_dir, in_size=512, model='GPEN-BFR-512', sr_scale=2,
+    #                             use_sr=False, sr_model=None)
+    model = FaceGAN(model_dir, 512, None, 'GPEN-BFR-512',
+                    2, 1, None, device='cuda')
     full_video = cv2.VideoCapture(origin_video_path)
     h = int(full_video.get(4))
     w = int(full_video.get(3))
@@ -67,11 +67,11 @@ def video_gpen_process(origin_video_path, model_dir, out_video_path='/tmp/paste_
         *'XVID'), fps, (w, h))
     for _ in trange(frame_count):
         _, frame = full_video.read()
-        img_out, _, _ = processer.process(
-            frame, aligned=False)
-        img_out = cv2.resize(img_out, (w, h))
-        # img_out = model.process(frame)
+        # img_out, _, _ = processer.process(
+        #     frame, aligned=False)
         # img_out = cv2.resize(img_out, (w, h))
+        img_out = model.process(frame)
+        img_out = cv2.resize(img_out, (w, h))
         # mask = np.zeros([h+2, w+2], np.uint8)
         # cv2.floodFill(img_out, mask, (0, 0), (255, 255, 255), (
         #     50, 50, 50), (50, 50, 50), cv2.FLOODFILL_FIXED_RANGE)
@@ -111,8 +111,8 @@ def make_image_animation_dataflow(source_path, driving_origin_path, result_path,
     paste_video_path = video_gpen_process(safa_video, model_dir)
     torch.cuda.empty_cache()
     # -preset veryslow
-    # command = f"ffmpeg -y -i {paste_video_path} -i /tmp/temp.wav  -crf  {crf} -vcodec h264  {result_path} "
-    command = f"ffmpeg   -y -i {paste_video_path} -i /tmp/temp.wav -crf {crf} -vcodec h264_nvenc  {result_path}"
+    command = f"ffmpeg -y -i {paste_video_path} -i /tmp/temp.wav  -crf  {crf} -vcodec h264  {result_path} "
+    # command = f"ffmpeg   -y -i {paste_video_path} -i /tmp/temp.wav -crf {crf} -vcodec h264_nvenc  {result_path}"
     subprocess.call(command, shell=True)
 
 
@@ -122,16 +122,17 @@ if __name__ == '__main__':
     from pathlib import Path
     from glob import glob
     import time
-    root = '/home/yuan/hdd/09_13'
+    root = '/home/yuan/hdd/09_19'
     face_data = '/home/yuan/hdd/driving_video/model2-crop-wav2lip/face.pkl'
     print("root", root)
-    reset_list = ['健陞']
-    for reset_item in reset_list:
-        print(reset_item)
-        st = time.perf_counter()
-        for audio_path in sorted(glob(f'{root}/audio/{reset_item}/*')):
+    job_list = ['BSD-Series-new/中文', 'BSD-Series-new/英文',
+                '04-優選鋸', '耀登', '曙光/DN-Series', '曙光/DN-Series-old']
+    for job_item in job_list:
+        print(job_item)
+        for audio_path in sorted(glob(f'{root}/audio/{job_item}/*wav')):
+            st = time.perf_counter()
             image_input = f"{root}/img/0429_1-ok.png"
-            lip_dir = f'{root}/lip/{reset_item}'
+            lip_dir = f'{root}/lip/{job_item}'
             os.makedirs(lip_dir, exist_ok=True)
             lip_path = os.path.join(lip_dir, Path(
                 audio_path).stem.replace(' ', '-')+'.mp4')
@@ -140,7 +141,7 @@ if __name__ == '__main__':
                     face_data, audio_path, lip_path)
                 torch.cuda.empty_cache()
             save_dir = os.path.join(root, Path(
-                image_input).parent.name+'_out', reset_item)
+                image_input).parent.name+'_out', job_item)
             os.makedirs(save_dir, exist_ok=True)
             out_path = os.path.join(save_dir, 'result_' +
                                     Path(lip_path).stem+'.mp4')
@@ -154,32 +155,24 @@ if __name__ == '__main__':
                 print(e)
             print('cost:', time.perf_counter()-st)
 
-    # root = '/home/yuan/hdd/09_13'
-    # face_data = '/home/yuan/hdd/driving_video/model2-ebt/face.pkl'
-    # print("root", root)
-    # lip_path = f'{root}/lip/test-ebt.mp4'
-    # for img_path in sorted(glob(f'{root}/img/*g')):
-    #     st = time.time()
-    #     image_input = img_path
-    #     save_dir = os.path.join(root, Path(
-    #         image_input).parent.name+'_out', 'ebt')
-    #     os.makedirs(save_dir, exist_ok=True)
-    #     out_path = os.path.join(save_dir, 'result_' +
-    #                             Path(img_path).stem+'.mp4')
-    #     if os.path.exists(out_path):
-    #         continue
-    #     try:
+    root = '/home/yuan/hdd/09_22'
+    face_data = '/home/yuan/hdd/driving_video/model2-crop-wav2lip/face.pkl'
+    lip_path = f'{root}/lip/tw_02.mp4'
+    print("root", root)
 
-    #         make_image_animation_dataflow(
-    #             image_input, lip_path, out_path, 'ckpt/', use_crop=True, face_data=face_data)
-    #         torch.cuda.empty_cache()
-    #         print(time.time()-st)
-    #     except Exception as e:
-    #         print(e)
-    # face_data = '/home/yuan/hdd/driving_video/model2-crop-wav2lip/face.pkl'
-    # root = '/home/yuan/hdd/09_13'
-    # for audio_path in sorted(glob(f'{root}/audio/*wav')):
-    #     lip_dir = f'{root}/lip/'
-    #     lip_path = os.path.join(lip_dir, 'test-crop-wav2lip'+'.mp4')
-    #     generate_lip_video(face_data, audio_path,
-    #                        lip_path, lip_method='wav2lip')
+    for img_path in sorted(glob(f'{root}/img/*g')):
+        st = time.perf_counter()
+        save_dir = os.path.join(root, Path(
+            image_input).parent.name+'_out')
+        os.makedirs(save_dir, exist_ok=True)
+        out_path = os.path.join(save_dir, 'result_' +
+                                Path(img_path).stem+'.mp4')
+        if os.path.exists(out_path):
+            continue
+        try:
+            make_image_animation_dataflow(
+                img_path, lip_path, out_path, 'ckpt/', use_crop=False, face_data=face_data)
+            torch.cuda.empty_cache()
+        except Exception as e:
+            print(e)
+        print('cost:', time.perf_counter()-st)
