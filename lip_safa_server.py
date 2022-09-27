@@ -156,20 +156,19 @@ def worker(data_dir):
             job = None
             try:
                 job = dbtools.get_job_join()
-                if job is not None:
-                    if dbtools.set_ticket_job(sess.processing_ticket_id, job['id']) == True:
-                        print('ticket_id: ', sess.processing_ticket_id,
-                              ' job_id: ', job['id'], flush=True)
-                        if job['image_content'] is None:
-                            lip_process(sess, job, preprocess_dir, video_dir,
-                                        audio_dir, GENERATE_BATCH_SIZE)
-                        else:
-                            safa_process(sess, job, preprocess_dir, video_dir,
-                                         audio_dir, GENERATE_BATCH_SIZE)
-                    else:
-                        continue
-                else:
+                if job is None:
                     time.sleep(10)
+                    continue
+                if not dbtools.set_ticket_job(sess.processing_ticket_id, job['id']):
+                    continue
+                print('ticket_id: ', sess.processing_ticket_id,
+                      ' job_id: ', job['id'], flush=True)
+                if job['image_content'] is None:
+                    lip_process(sess, job, preprocess_dir, video_dir,
+                                audio_dir, GENERATE_BATCH_SIZE)
+                else:
+                    safa_process(sess, job, preprocess_dir, video_dir,
+                                 audio_dir, GENERATE_BATCH_SIZE)
             except Exception as e:
                 import traceback
                 traceback.print_exc()

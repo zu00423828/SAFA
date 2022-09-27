@@ -97,7 +97,7 @@ def make_image_animation_dataflow(source_path, driving_origin_path, result_path,
     print('create animation', flush=True)
     safa_model_path = f'{model_dir}/final_3DV.tar'
     safa_video = create_image_animation(source_path, driving_video_path, '/tmp/temp.mp4', config_path,
-                                        safa_model_path, with_eye=True, relative=True, adapt_scale=True, use_best_frame=use_best)
+                                        safa_model_path, with_eye=False, relative=True, adapt_scale=True, use_best_frame=use_best)  # with_eye=False 可解決單眼扎眼
     torch.cuda.empty_cache()
     # print('extract landmark', flush=True)
     # ldmk_path = extract_landmark(safa_video, '/tmp/ldmk.pkl')
@@ -157,13 +157,13 @@ if __name__ == '__main__':
 
     root = '/home/yuan/hdd/09_22'
     face_data = '/home/yuan/hdd/driving_video/model2-crop-wav2lip/face.pkl'
-    lip_path = f'{root}/lip/tw_02.mp4'
+    lip_path = f'{root}/lip/en_05.mp4'
     print("root", root)
 
-    for img_path in sorted(glob(f'{root}/img/*g')):
+    for img_path in sorted(glob(f'{root}/img/western/*g')):
         st = time.perf_counter()
         save_dir = os.path.join(root, Path(
-            image_input).parent.name+'_out')
+            image_input).parent.name+'_out', 'western')
         os.makedirs(save_dir, exist_ok=True)
         out_path = os.path.join(save_dir, 'result_' +
                                 Path(img_path).stem+'.mp4')
@@ -176,3 +176,59 @@ if __name__ == '__main__':
         except Exception as e:
             print(e)
         print('cost:', time.perf_counter()-st)
+
+    root = '/home/yuan/hdd/09_26'
+    face_data = '/home/yuan/hdd/driving_video/model2-crop-wav2lip/face.pkl'
+    # face_data = '/home/yuan/hdd/driving_video/model2-crop-ebt/face.pkl'
+    print("root", root)
+
+    for audio_path in sorted(glob(f'{root}/audio/*wav')):
+        st = time.perf_counter()
+        image_input = f"{root}/img/1024x1024-0926ok.jpg"
+        lip_dir = f'{root}/lip/'
+        os.makedirs(lip_dir, exist_ok=True)
+        lip_path = os.path.join(lip_dir, Path(
+            audio_path).stem.replace(' ', '-')+'.mp4')
+        if not os.path.exists(lip_path):
+            generate_lip_video(
+                face_data, audio_path, lip_path)
+            torch.cuda.empty_cache()
+        save_dir = os.path.join(root, Path(
+            image_input).parent.name+'_out', 'new')
+        os.makedirs(save_dir, exist_ok=True)
+        out_path = os.path.join(save_dir, 'result_' +
+                                Path(lip_path).stem+'.mp4')
+        if os.path.exists(out_path):
+            continue
+        try:
+            make_image_animation_dataflow(
+                image_input, lip_path, out_path, 'ckpt/', use_crop=False, face_data=face_data)
+            torch.cuda.empty_cache()
+        except Exception as e:
+            print(e)
+        print('cost:', time.perf_counter()-st)
+
+    root = '/home/yuan/hdd/09_16'
+    face_data = '/home/yuan/hdd/driving_video/model2-crop-wav2lip/face.pkl'
+    print("root", root)
+    job_list = ['asia', 'us']
+    for job_item in job_list:
+        print(job_item)
+        for image_input in sorted(glob(f'{root}/img/{job_item}/*g')):
+            st = time.perf_counter()
+            # image_input = f"{root}/img/0429_1-ok.png"
+            lip_dir = f'{root}/lip/'
+            lip_path = os.path.join(lip_dir, job_item+'.mp4')
+            save_dir = os.path.join(root, 'img'+'_out', job_item)
+            os.makedirs(save_dir, exist_ok=True)
+            out_path = os.path.join(save_dir, 'result_' +
+                                    Path(image_input).stem+'.mp4')
+            if os.path.exists(out_path):
+                continue
+            try:
+                make_image_animation_dataflow(
+                    image_input, lip_path, out_path, 'ckpt/', use_crop=False, face_data=face_data)
+                torch.cuda.empty_cache()
+            except Exception as e:
+                print(e)
+            print('cost:', time.perf_counter()-st)
